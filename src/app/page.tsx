@@ -88,7 +88,6 @@ function escapeCsvCell(value: string): string {
 function buildFreeeCsv(
   rows: CsvRow[],
   options: {
-    accountTitle: string
     taxCategory: string
     settlementBase: 'order' | 'ship'
     overrides: RowOverrides
@@ -138,10 +137,15 @@ function inferTaxCategory(row: CsvRow): string {
   return '課対仕入'
 }
 
+function normalizeOverride(value: string | undefined): string | undefined {
+  if (!value) return undefined
+  const trimmed = value.trim()
+  return trimmed ? trimmed : undefined
+}
+
 function buildFreeeRow(
   row: CsvRow,
   options: {
-    accountTitle: string
     taxCategory: string
     settlementBase: 'order' | 'ship'
     overrides: RowOverrides
@@ -149,33 +153,35 @@ function buildFreeeRow(
 ): string[] {
   const dateValue = options.settlementBase === 'ship' ? row['Ship Date'] : row['Order Date']
   const productName = row['Product Name'] ?? ''
-  const noteParts = ''
+  const noteParts = productName
   const amount = row['Total Owed'] ?? ''
   const override = options.overrides[rowKey(row)] ?? {}
-  const accountTitle = override.accountTitle ?? options.accountTitle ?? ''
-  const taxCategory = override.taxCategory ?? options.taxCategory ?? inferTaxCategory(row) ?? ''
+  const accountTitle = '消耗品費'
+  const overrideTax = normalizeOverride(override.taxCategory)
+  const baseTax = normalizeOverride(options.taxCategory)
+  const taxCategory = overrideTax ?? baseTax ?? inferTaxCategory(row) ?? ''
   const formattedDate = formatJstDate(dateValue)
   return [
     '支出',
-    row['Order ID'] ?? '',
+    '',
     formattedDate,
     '',
     '',
-    'Amazon.co.jp',
+    '',
     accountTitle,
     taxCategory,
     amount,
     '内税',
     calcTaxAmount(row),
     noteParts,
-    productName,
+    '',
     '',
     '',
     '',
     '',
     '',
     formattedDate,
-    '',
+    '現金',
     amount,
   ]
 }
@@ -200,9 +206,8 @@ export default function Home() {
   const [error, setError] = useState<string | null>(null)
   const [selectedKeys, setSelectedKeys] = useState<Set<string>>(new Set())
   const [selectedYear, setSelectedYear] = useState<string>('all')
-  const [accountTitle, setAccountTitle] = useState('')
-  const [taxCategory, setTaxCategory] = useState('')
-  const [settlementBase, setSettlementBase] = useState<'order' | 'ship'>('order')
+  const [taxCategory] = useState('')
+  const [settlementBase] = useState<'order' | 'ship'>('order')
   const [step, setStep] = useState<Step>(1)
   const [rowOverrides, setRowOverrides] = useState<RowOverrides>({})
   const [isLoadingCsv, setIsLoadingCsv] = useState(true)
@@ -315,7 +320,6 @@ export default function Home() {
   const handleExportCsv = () => {
     if (!selectedRows.length) return
     const csv = buildFreeeCsv(selectedRows, {
-      accountTitle,
       taxCategory,
       settlementBase,
       overrides: rowOverrides,
@@ -416,21 +420,6 @@ export default function Home() {
     setStep(next)
   }
 
-  const handleOverrideChange = (
-    row: CsvRow,
-    key: 'accountTitle' | 'taxCategory',
-    value: string
-  ) => {
-    const k = rowKey(row)
-    setRowOverrides((prev) => ({
-      ...prev,
-      [k]: {
-        ...prev[k],
-        [key]: value,
-      },
-    }))
-  }
-
   return (
     <main className="min-h-screen bg-[radial-gradient(circle_at_top,_var(--color-accent)_0%,_transparent_55%)]">
       {isLoadingCsv && (
@@ -480,13 +469,11 @@ export default function Home() {
             <ExportStep
               step={step}
               handleStepClick={handleStepClick}
-              accountTitle={accountTitle}
               taxCategory={taxCategory}
               settlementBase={settlementBase}
               selectedRows={selectedRows}
               rowKey={rowKey}
               rowOverrides={rowOverrides}
-              handleOverrideChange={handleOverrideChange}
               handleExportCsv={handleExportCsv}
               buildFreeeRow={buildFreeeRow}
               inferTaxCategory={inferTaxCategory}
