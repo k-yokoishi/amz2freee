@@ -17,6 +17,17 @@ import {
 } from '@/components/ui/table'
 import type { CsvRow, RowOverrides, Step } from '@/app/types'
 
+const TAX_CATEGORY_OPTIONS = [
+  '課対仕入10%',
+  '課対仕入8%（軽）',
+  '課対仕入8%',
+  '課対仕入',
+  '対象外',
+  '不課税',
+  '非課税売上',
+  '非課税仕入',
+]
+
 type ExportStepProps = {
   step: Step
   handleStepClick: (next: Step) => void
@@ -105,11 +116,18 @@ export default function ExportStep({
               </div>
               <div className="flex flex-col gap-2">
                 <label className="text-sm font-medium">税区分</label>
-                <Input
-                  placeholder="例: 課税仕入 10%"
-                  value={taxCategory}
-                  onChange={(event) => setTaxCategory(event.target.value)}
-                />
+                <Select value={taxCategory || undefined} onValueChange={setTaxCategory}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="選択" />
+                  </SelectTrigger>
+                  <SelectContent position="popper" align="start" sideOffset={6} className="z-[100]">
+                    {TAX_CATEGORY_OPTIONS.map((option) => (
+                      <SelectItem key={option} value={option}>
+                        {option}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
               </div>
               <div className="flex flex-col gap-2">
                 <label className="text-sm font-medium">決済日基準</label>
@@ -185,13 +203,28 @@ export default function ExportStep({
                           if (cellIndex === 7) {
                             return (
                               <TableCell key={`${key}-tax`}>
-                                <Input
-                                  className="h-8"
-                                  value={taxValue}
-                                  onChange={(event) =>
-                                    handleOverrideChange(row, 'taxCategory', event.target.value)
+                                <Select
+                                  value={taxValue || undefined}
+                                  onValueChange={(value) =>
+                                    handleOverrideChange(row, 'taxCategory', value)
                                   }
-                                />
+                                >
+                                  <SelectTrigger size="sm" className="h-8">
+                                    <SelectValue placeholder="選択" />
+                                  </SelectTrigger>
+                                  <SelectContent
+                                    position="popper"
+                                    align="start"
+                                    sideOffset={6}
+                                    className="z-[100]"
+                                  >
+                                    {TAX_CATEGORY_OPTIONS.map((option) => (
+                                      <SelectItem key={option} value={option}>
+                                        {option}
+                                      </SelectItem>
+                                    ))}
+                                  </SelectContent>
+                                </Select>
                               </TableCell>
                             )
                           }
