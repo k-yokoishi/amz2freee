@@ -63,7 +63,24 @@ export default function ExportStep({
   inferTaxCategory,
   FREEE_HEADERS,
 }: ExportStepProps) {
-  const accountGroups = freeeAccountItems
+  const expenseGroup = freeeAccountItems.find((group) => group.large === '費用')
+  const accountGroups = expenseGroup ? expenseGroup.middles : []
+  const groupedBySmall = accountGroups.map((group) => {
+    const buckets = new Map<string, typeof group.items>()
+    for (const item of group.items) {
+      const key = item.small?.trim() || 'その他'
+      const list = buckets.get(key)
+      if (list) list.push(item)
+      else buckets.set(key, [item])
+    }
+    return {
+      middle: group.middle,
+      smalls: Array.from(buckets.entries()).map(([small, items]) => ({
+        small,
+        items,
+      })),
+    }
+  })
   const [recentAccounts, setRecentAccounts] = useState<string[]>(() => {
     if (typeof window === 'undefined') return []
     try {
@@ -195,31 +212,32 @@ export default function ExportStep({
                                         <DropdownMenuSeparator />
                                       </>
                                     )}
-                                    {accountGroups.map((group) => (
-                                      <DropdownMenuSub key={`${key}-${group.large}`}>
-                                        <DropdownMenuSubTrigger>{group.large}</DropdownMenuSubTrigger>
+                                    {groupedBySmall.map((group) => (
+                                      <DropdownMenuSub key={`${key}-${group.middle}`}>
+                                        <DropdownMenuSubTrigger>{group.middle}</DropdownMenuSubTrigger>
                                         <DropdownMenuPortal>
                                           <DropdownMenuSubContent className="max-h-[60vh] w-72 overflow-auto">
-                                            {group.middles.map((middle, middleIndex) => (
-                                              <div key={`${key}-${group.large}-${middle.middle}`}>
-                                                <DropdownMenuLabel className="text-xs text-muted-foreground">
-                                                  {middle.middle}
-                                                </DropdownMenuLabel>
-                                                {middle.items.map((item) => (
-                                                  <DropdownMenuItem
-                                                    key={`${key}-${group.large}-${middle.middle}-${item.account}`}
-                                                    onSelect={() => {
-                                                      handleOverrideChange(row, 'accountTitle', item.account)
-                                                      pushRecentAccount(item.account)
-                                                    }}
-                                                  >
-                                                    {item.account}
-                                                  </DropdownMenuItem>
-                                                ))}
-                                                {middleIndex < group.middles.length - 1 && (
-                                                  <DropdownMenuSeparator />
-                                                )}
-                                              </div>
+                                            {group.smalls.map((smallGroup) => (
+                                              <DropdownMenuSub key={`${key}-${group.middle}-${smallGroup.small}`}>
+                                                <DropdownMenuSubTrigger>
+                                                  {smallGroup.small}
+                                                </DropdownMenuSubTrigger>
+                                                <DropdownMenuPortal>
+                                                  <DropdownMenuSubContent className="max-h-[60vh] w-72 overflow-auto">
+                                                    {smallGroup.items.map((item) => (
+                                                      <DropdownMenuItem
+                                                        key={`${key}-${group.middle}-${smallGroup.small}-${item.account}`}
+                                                        onSelect={() => {
+                                                          handleOverrideChange(row, 'accountTitle', item.account)
+                                                          pushRecentAccount(item.account)
+                                                        }}
+                                                      >
+                                                        {item.account}
+                                                      </DropdownMenuItem>
+                                                    ))}
+                                                  </DropdownMenuSubContent>
+                                                </DropdownMenuPortal>
+                                              </DropdownMenuSub>
                                             ))}
                                           </DropdownMenuSubContent>
                                         </DropdownMenuPortal>
