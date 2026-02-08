@@ -6,7 +6,7 @@ import Papa from 'papaparse'
 import UploadStep from '@/app/_components/UploadStep'
 import SelectStep from '@/app/_components/SelectStep'
 import ExportStep from '@/app/_components/ExportStep'
-import type { CsvRow, ParsedData, RowOverrides, Step } from '@/app/types'
+import type { CsvRow, ParsedData, RowOverrides, SourceType, Step } from '@/app/types'
 import { Spinner } from '@/components/ui/spinner'
 
 const STORAGE_KEY = 'amz2freee:selected-keys:v1'
@@ -21,6 +21,11 @@ function normalizeHeader(value: string): string {
     .replace(/^\ufeff/, '')
     .replace(/^"|"$/g, '')
     .trim()
+}
+
+function normalizeJcbDate(value: string | undefined): string {
+  if (!value) return ''
+  return value.trim()
 }
 
 function safeDate(value: string): Date | null {
@@ -100,6 +105,46 @@ function buildFreeeCsv(
   return lines.map((line) => line.map((cell) => escapeCsvCell(String(cell))).join(',')).join('\n')
 }
 
+function parseJcbRows(rows: string[][]): CsvRow[] {
+  const headerIndex = rows.findIndex(
+    (row) => row.includes('ご利用日') && row.includes('ご利用先など')
+  )
+  if (headerIndex === -1) return []
+  const headers = rows[headerIndex]
+  const dataRows = rows.slice(headerIndex + 1)
+  const result: CsvRow[] = []
+  for (const row of dataRows) {
+    if (!row || row.length === 0) continue
+    if (row[0] && row[0].startsWith('【')) continue
+    const map: CsvRow = {}
+    headers.forEach((header, index) => {
+      map[header] = row[index] ?? ''
+    })
+    const usageDate = normalizeJcbDate(map['ご利用日'])
+    const merchant = (map['ご利用先など'] ?? '').trim()
+    const amount = (map['お支払い金額(￥)'] ?? map['ご利用金額(￥)'] ?? '').trim()
+    if (!usageDate && !merchant && !amount) continue
+    result.push({
+      Website: 'MyJCB',
+      'Order ID': '',
+      'Order Date': usageDate,
+      'Ship Date': usageDate,
+      'Product Name': merchant,
+      Quantity: '1',
+      Currency: 'JPY',
+      'Total Owed': amount,
+      'Unit Price': amount,
+      'Shipment Item Subtotal': amount,
+      'Shipment Item Subtotal Tax': '',
+      'Unit Price Tax': '',
+      'Payment Instrument Type': 'JCB',
+      'Order Status': '',
+      'Shipment Status': '',
+    })
+  }
+  return result
+}
+
 function parseNumber(value: string | undefined): number | null {
   if (!value) return null
   const normalized = value.replace(/,/g, '')
@@ -159,7 +204,7 @@ function buildFreeeRow(
   const accountTitle = normalizeOverride(override.accountTitle) ?? ''
   const overrideTax = normalizeOverride(override.taxCategory)
   const baseTax = normalizeOverride(options.taxCategory)
-  const taxCategory = overrideTax ?? baseTax ?? inferTaxCategory(row) ?? ''
+  const taxCategory = '課対仕入10%'
   const formattedDate = formatJstDate(dateValue)
   return [
     '支出',
@@ -206,11 +251,13 @@ export default function Home() {
   const [error, setError] = useState<string | null>(null)
   const [selectedKeys, setSelectedKeys] = useState<Set<string>>(new Set())
   const [selectedYear, setSelectedYear] = useState<string>('all')
+  const [sourceType, setSourceType] = useState<SourceType>('amazon')
   const [taxCategory] = useState('')
   const [settlementBase] = useState<'order' | 'ship'>('order')
   const [step, setStep] = useState<Step>(1)
   const [rowOverrides, setRowOverrides] = useState<RowOverrides>({})
   const [isLoadingCsv, setIsLoadingCsv] = useState(true)
+  const [jcbUploads, setJcbUploads] = useState<Array<{ name: string; rows: CsvRow[] }>>([])
 
   useEffect(() => {
     const raw = localStorage.getItem(STORAGE_KEY)
@@ -271,6 +318,7 @@ export default function Home() {
       if (data?.rows?.length && data?.fields?.length) {
         setParsed(data)
         setStep(2)
+        setSourceType(data.sourceType ?? 'amazon')
       }
     } catch {
       // ignore invalid storage
@@ -356,33 +404,56 @@ export default function Home() {
     })
   }
 
-  const handleFiles = (files: FileList | null) => {
+  const handleFiles = async (files: FileList | null) => {
     if (!files || files.length === 0) return
-    const file = files[0]
     setError(null)
-
-    Papa.parse<CsvRow>(file, {
-      header: true,
-      skipEmptyLines: true,
-      transformHeader: normalizeHeader,
-      complete: (result) => {
-        const fields = result.meta.fields ?? []
-        const missing = REQUIRED_COLUMNS.filter((col) => !fields.includes(col))
-        if (missing.length > 0) {
+    if (sourceType === 'amazon') {
+      const file = files[0]
+      Papa.parse<CsvRow>(file, {
+        header: true,
+        skipEmptyLines: true,
+        transformHeader: normalizeHeader,
+        complete: (result) => {
+          const fields = result.meta.fields ?? []
+          const missing = REQUIRED_COLUMNS.filter((col) => !fields.includes(col))
+          if (missing.length > 0) {
+            setParsed(null)
+            setError(`必要な列が見つかりません: ${missing.join(', ')}`)
+            return
+          }
+          const data = {
+            rows: result.data,
+            fields,
+            fileName: file.name,
+            sourceType: 'amazon' as SourceType,
+          }
+          setParsed(data)
+          localStorage.setItem(CSV_STORAGE_KEY, JSON.stringify(data))
+          setStep(2)
+        },
+        error: (err) => {
           setParsed(null)
-          setError(`必要な列が見つかりません: ${missing.join(', ')}`)
-          return
-        }
-        const data = { rows: result.data, fields, fileName: file.name }
-        setParsed(data)
-        localStorage.setItem(CSV_STORAGE_KEY, JSON.stringify(data))
-        setStep(2)
-      },
-      error: (err) => {
-        setParsed(null)
-        setError(err.message)
-      },
-    })
+          setError(err.message)
+        },
+      })
+      return
+    }
+
+    const nextUploads: Array<{ name: string; rows: CsvRow[] }> = []
+    for (const file of Array.from(files)) {
+      try {
+        const buffer = await file.arrayBuffer()
+        const text = new TextDecoder('shift_jis').decode(buffer)
+        const parsed = Papa.parse<string[]>(text, { skipEmptyLines: true })
+        const rows = parseJcbRows(parsed.data as string[][])
+        nextUploads.push({ name: file.name, rows })
+      } catch (err) {
+        console.error(err)
+        setError('MyJCBのCSV読み込みに失敗しました。')
+        return
+      }
+    }
+    setJcbUploads((prev) => [...prev, ...nextUploads])
   }
 
   const handleDrop: React.DragEventHandler<HTMLDivElement> = (event) => {
@@ -405,9 +476,25 @@ export default function Home() {
     setSelectedKeys(new Set())
     setStep(1)
     setRowOverrides({})
+    setJcbUploads([])
+    setSourceType('amazon')
     localStorage.removeItem(CSV_STORAGE_KEY)
     localStorage.removeItem(STORAGE_KEY)
     localStorage.removeItem(OVERRIDES_STORAGE_KEY)
+  }
+
+  const handleConfirmJcb = () => {
+    if (jcbUploads.length === 0) return
+    const rows = jcbUploads.flatMap((item) => item.rows)
+    const data: ParsedData = {
+      rows,
+      fields: Object.keys(rows[0] ?? {}),
+      fileName: jcbUploads.map((item) => item.name).join(', '),
+      sourceType: 'jcb',
+    }
+    setParsed(data)
+    localStorage.setItem(CSV_STORAGE_KEY, JSON.stringify(data))
+    setStep(2)
   }
 
   const handleStepClick = (next: Step) => {
@@ -449,6 +536,8 @@ export default function Home() {
         <UploadStep
           step={step}
           handleStepClick={handleStepClick}
+          sourceType={sourceType}
+          setSourceType={setSourceType}
           isDragging={isDragging}
           handleDrop={handleDrop}
           handleDragOver={handleDragOver}
@@ -456,6 +545,8 @@ export default function Home() {
           inputRef={inputRef}
           handleFiles={handleFiles}
           error={error}
+          jcbFiles={jcbUploads.map((item) => item.name)}
+          onConfirmJcb={handleConfirmJcb}
         />
       )}
 
