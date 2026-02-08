@@ -156,7 +156,7 @@ function buildFreeeRow(
   const noteParts = productName
   const amount = row['Total Owed'] ?? ''
   const override = options.overrides[rowKey(row)] ?? {}
-  const accountTitle = '消耗品費'
+  const accountTitle = normalizeOverride(override.accountTitle) ?? ''
   const overrideTax = normalizeOverride(override.taxCategory)
   const baseTax = normalizeOverride(options.taxCategory)
   const taxCategory = overrideTax ?? baseTax ?? inferTaxCategory(row) ?? ''
@@ -420,6 +420,21 @@ export default function Home() {
     setStep(next)
   }
 
+  const handleOverrideChange = (
+    row: CsvRow,
+    key: 'accountTitle' | 'taxCategory',
+    value: string
+  ) => {
+    const k = rowKey(row)
+    setRowOverrides((prev) => ({
+      ...prev,
+      [k]: {
+        ...prev[k],
+        [key]: value,
+      },
+    }))
+  }
+
   return (
     <main className="min-h-screen bg-[radial-gradient(circle_at_top,_var(--color-accent)_0%,_transparent_55%)]">
       {isLoadingCsv && (
@@ -474,6 +489,7 @@ export default function Home() {
               selectedRows={selectedRows}
               rowKey={rowKey}
               rowOverrides={rowOverrides}
+              handleOverrideChange={handleOverrideChange}
               handleExportCsv={handleExportCsv}
               buildFreeeRow={buildFreeeRow}
               inferTaxCategory={inferTaxCategory}

@@ -1,4 +1,17 @@
+import { useEffect, useState } from 'react'
 import { Button } from '@/components/ui/button'
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuPortal,
+  DropdownMenuSeparator,
+  DropdownMenuSub,
+  DropdownMenuSubContent,
+  DropdownMenuSubTrigger,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu'
 import {
   Table,
   TableBody,
@@ -8,6 +21,10 @@ import {
   TableRow,
 } from '@/components/ui/table'
 import type { CsvRow, RowOverrides, Step } from '@/app/types'
+import { freeeAccountItems } from '@/data/freeeAccountItems'
+
+const RECENT_ACCOUNTS_KEY = 'amz2freee:recent-accounts:v1'
+
 
 type ExportStepProps = {
   step: Step
@@ -17,10 +34,12 @@ type ExportStepProps = {
   selectedRows: CsvRow[]
   rowKey: (row: CsvRow) => string
   rowOverrides: RowOverrides
+  handleOverrideChange: (row: CsvRow, key: 'accountTitle' | 'taxCategory', value: string) => void
   handleExportCsv: () => void
   buildFreeeRow: (
     row: CsvRow,
     options: {
+      accountTitle: string
       taxCategory: string
       settlementBase: 'order' | 'ship'
       overrides: RowOverrides
@@ -38,11 +57,41 @@ export default function ExportStep({
   selectedRows,
   rowKey,
   rowOverrides,
+  handleOverrideChange,
   handleExportCsv,
   buildFreeeRow,
   inferTaxCategory,
   FREEE_HEADERS,
 }: ExportStepProps) {
+  const accountGroups = freeeAccountItems
+  const [recentAccounts, setRecentAccounts] = useState<string[]>(() => {
+    if (typeof window === 'undefined') return []
+    try {
+      const raw = localStorage.getItem(RECENT_ACCOUNTS_KEY)
+      if (!raw) return []
+      const parsed = JSON.parse(raw)
+      if (Array.isArray(parsed)) {
+        return parsed.filter((value) => typeof value === 'string').slice(0, 5)
+      }
+    } catch {
+      // ignore invalid storage
+    }
+    return []
+  })
+
+  useEffect(() => {
+    localStorage.setItem(RECENT_ACCOUNTS_KEY, JSON.stringify(recentAccounts))
+  }, [recentAccounts])
+
+  const pushRecentAccount = (value: string) => {
+    const trimmed = value.trim()
+    if (!trimmed) return
+    setRecentAccounts((prev) => {
+      const next = [trimmed, ...prev.filter((item) => item !== trimmed)]
+      return next.slice(0, 5)
+    })
+  }
+
   return (
     <div className="flex min-h-screen flex-col">
       <header className="flex h-16 items-center justify-center px-6">
@@ -113,9 +162,74 @@ export default function ExportStep({
                       <TableRow key={key}>
                         {cells.map((cell, cellIndex) => {
                           if (cellIndex === 6) {
+                            const accountValue = override.accountTitle?.trim() ?? ''
                             return (
-                              <TableCell key={`${key}-account`} className="whitespace-nowrap">
-                                {cell || '-'}
+                              <TableCell key={`${key}-account`}>
+                                <DropdownMenu>
+                                  <DropdownMenuTrigger asChild>
+                                    <Button variant="outline" size="sm" className="h-8">
+                                      {accountValue || '選択'}
+                                    </Button>
+                                  </DropdownMenuTrigger>
+                                  <DropdownMenuContent
+                                    align="start"
+                                    sideOffset={6}
+                                    className="max-h-[60vh] w-72 overflow-auto"
+                                  >
+                                    {recentAccounts.length > 0 && (
+                                      <>
+                                        <DropdownMenuLabel className="text-xs text-muted-foreground">
+                                          最近使った
+                                        </DropdownMenuLabel>
+                                        {recentAccounts.map((recent) => (
+                                          <DropdownMenuItem
+                                            key={`${key}-recent-${recent}`}
+                                            onSelect={() => {
+                                              handleOverrideChange(row, 'accountTitle', recent)
+                                              pushRecentAccount(recent)
+                                            }}
+                                          >
+                                            {recent}
+                                          </DropdownMenuItem>
+                                        ))}
+                                        <DropdownMenuSeparator />
+                                      </>
+                                    )}
+                                    {accountGroups.map((group) => (
+                                      <DropdownMenuSub key={`${key}-${group.large}`}>
+                                        <DropdownMenuSubTrigger>{group.large}</DropdownMenuSubTrigger>
+                                        <DropdownMenuPortal>
+                                          <DropdownMenuSubContent className="max-h-[60vh] w-72 overflow-auto">
+                                            {group.middles.map((middle, middleIndex) => (
+                                              <div key={`${key}-${group.large}-${middle.middle}`}>
+                                                <DropdownMenuLabel className="text-xs text-muted-foreground">
+                                                  {middle.middle}
+                                                </DropdownMenuLabel>
+                                                {middle.items.map((item) => (
+                                                  <DropdownMenuItem
+                                                    key={`${key}-${group.large}-${middle.middle}-${item.account}`}
+                                                    onSelect={() => {
+                                                      handleOverrideChange(row, 'accountTitle', item.account)
+                                                      pushRecentAccount(item.account)
+                                                    }}
+                                                  >
+                                                    {item.account}
+                                                  </DropdownMenuItem>
+                                                ))}
+                                                {middleIndex < group.middles.length - 1 && (
+                                                  <DropdownMenuSeparator />
+                                                )}
+                                              </div>
+                                            ))}
+                                          </DropdownMenuSubContent>
+                                        </DropdownMenuPortal>
+                                      </DropdownMenuSub>
+                                    ))}
+                                    {accountGroups.length === 0 && (
+                                      <DropdownMenuItem disabled>候補がありません</DropdownMenuItem>
+                                    )}
+                                  </DropdownMenuContent>
+                                </DropdownMenu>
                               </TableCell>
                             )
                           }
