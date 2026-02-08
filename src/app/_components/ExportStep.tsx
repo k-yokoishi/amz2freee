@@ -143,7 +143,7 @@ export default function ExportStep({
             <div className="flex flex-wrap items-center justify-between gap-3">
               <h2 className="text-lg font-semibold">エクスポートCSVプレビュー</h2>
               <div className="flex items-center gap-3 text-sm text-muted-foreground">
-                <span>最大50件を表示</span>
+                <span>全件表示</span>
                 <Button onClick={handleExportCsv} disabled={selectedRows.length === 0}>
                   CSVをエクスポート
                 </Button>
@@ -159,7 +159,7 @@ export default function ExportStep({
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {selectedRows.slice(0, 50).map((row, index) => {
+                  {selectedRows.map((row, index) => {
                     const cells = buildFreeeRow(row, {
                       taxCategory,
                       settlementBase,

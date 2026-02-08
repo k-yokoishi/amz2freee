@@ -28,6 +28,20 @@ function normalizeJcbDate(value: string | undefined): string {
   return value.trim()
 }
 
+function normalizeOricoDate(value: string | undefined): string {
+  if (!value) return ''
+  const trimmed = value.trim()
+  const match = trimmed.match(/^(\d{4})年(\d{1,2})月(\d{1,2})日$/)
+  if (!match) return trimmed
+  const [, yyyy, mm, dd] = match
+  return `${yyyy}/${mm.padStart(2, '0')}/${dd.padStart(2, '0')}`
+}
+
+function normalizeYenAmount(value: string | undefined): string {
+  if (!value) return ''
+  return value.replace(/[\\\\,]/g, '').trim()
+}
+
 function safeDate(value: string): Date | null {
   if (!value) return null
   const d = new Date(value)
@@ -145,6 +159,49 @@ function parseJcbRows(rows: string[][]): CsvRow[] {
   return result
 }
 
+function parseOricoRows(rows: string[][]): CsvRow[] {
+  const headerIndex = rows.findIndex(
+    (row) => row.includes('ご利用日') && row.includes('ご利用先など')
+  )
+  if (headerIndex === -1) return []
+  const headers = rows[headerIndex]
+  const dataRows = rows.slice(headerIndex + 1)
+  const result: CsvRow[] = []
+  for (const row of dataRows) {
+    if (!row || row.length === 0) continue
+    if (row[0] && row[0].startsWith('<')) continue
+    const map: CsvRow = {}
+    headers.forEach((header, index) => {
+      map[header] = row[index] ?? ''
+    })
+    const usageDate = normalizeOricoDate(map['ご利用日'])
+    const merchant = (map['ご利用先など'] ?? '').trim()
+    const amount =
+      normalizeYenAmount(map['当月ご請求額']) ||
+      normalizeYenAmount(map['ご利用金額']) ||
+      ''
+    if (!usageDate && !merchant && !amount) continue
+    result.push({
+      Website: 'Orico',
+      'Order ID': '',
+      'Order Date': usageDate,
+      'Ship Date': usageDate,
+      'Product Name': merchant,
+      Quantity: '1',
+      Currency: 'JPY',
+      'Total Owed': amount,
+      'Unit Price': amount,
+      'Shipment Item Subtotal': amount,
+      'Shipment Item Subtotal Tax': '',
+      'Unit Price Tax': '',
+      'Payment Instrument Type': 'Orico',
+      'Order Status': '',
+      'Shipment Status': '',
+    })
+  }
+  return result
+}
+
 function parseNumber(value: string | undefined): number | null {
   if (!value) return null
   const normalized = value.replace(/,/g, '')
@@ -202,8 +259,6 @@ function buildFreeeRow(
   const amount = row['Total Owed'] ?? ''
   const override = options.overrides[rowKey(row)] ?? {}
   const accountTitle = normalizeOverride(override.accountTitle) ?? ''
-  const overrideTax = normalizeOverride(override.taxCategory)
-  const baseTax = normalizeOverride(options.taxCategory)
   const taxCategory = '課対仕入10%'
   const formattedDate = formatJstDate(dateValue)
   return [
@@ -258,6 +313,7 @@ export default function Home() {
   const [rowOverrides, setRowOverrides] = useState<RowOverrides>({})
   const [isLoadingCsv, setIsLoadingCsv] = useState(true)
   const [jcbUploads, setJcbUploads] = useState<Array<{ name: string; rows: CsvRow[] }>>([])
+  const [oricoUploads, setOricoUploads] = useState<Array<{ name: string; rows: CsvRow[] }>>([])
 
   useEffect(() => {
     const raw = localStorage.getItem(STORAGE_KEY)
@@ -445,15 +501,22 @@ export default function Home() {
         const buffer = await file.arrayBuffer()
         const text = new TextDecoder('shift_jis').decode(buffer)
         const parsed = Papa.parse<string[]>(text, { skipEmptyLines: true })
-        const rows = parseJcbRows(parsed.data as string[][])
+        const rows =
+          sourceType === 'jcb'
+            ? parseJcbRows(parsed.data as string[][])
+            : parseOricoRows(parsed.data as string[][])
         nextUploads.push({ name: file.name, rows })
       } catch (err) {
         console.error(err)
-        setError('MyJCBのCSV読み込みに失敗しました。')
+        setError(`${sourceType === 'jcb' ? 'MyJCB' : 'Orico'}のCSV読み込みに失敗しました。`)
         return
       }
     }
-    setJcbUploads((prev) => [...prev, ...nextUploads])
+    if (sourceType === 'jcb') {
+      setJcbUploads((prev) => [...prev, ...nextUploads])
+    } else {
+      setOricoUploads((prev) => [...prev, ...nextUploads])
+    }
   }
 
   const handleDrop: React.DragEventHandler<HTMLDivElement> = (event) => {
@@ -477,6 +540,7 @@ export default function Home() {
     setStep(1)
     setRowOverrides({})
     setJcbUploads([])
+    setOricoUploads([])
     setSourceType('amazon')
     localStorage.removeItem(CSV_STORAGE_KEY)
     localStorage.removeItem(STORAGE_KEY)
@@ -491,6 +555,20 @@ export default function Home() {
       fields: Object.keys(rows[0] ?? {}),
       fileName: jcbUploads.map((item) => item.name).join(', '),
       sourceType: 'jcb',
+    }
+    setParsed(data)
+    localStorage.setItem(CSV_STORAGE_KEY, JSON.stringify(data))
+    setStep(2)
+  }
+
+  const handleConfirmOrico = () => {
+    if (oricoUploads.length === 0) return
+    const rows = oricoUploads.flatMap((item) => item.rows)
+    const data: ParsedData = {
+      rows,
+      fields: Object.keys(rows[0] ?? {}),
+      fileName: oricoUploads.map((item) => item.name).join(', '),
+      sourceType: 'orico',
     }
     setParsed(data)
     localStorage.setItem(CSV_STORAGE_KEY, JSON.stringify(data))
@@ -546,7 +624,9 @@ export default function Home() {
           handleFiles={handleFiles}
           error={error}
           jcbFiles={jcbUploads.map((item) => item.name)}
+          oricoFiles={oricoUploads.map((item) => item.name)}
           onConfirmJcb={handleConfirmJcb}
+          onConfirmOrico={handleConfirmOrico}
         />
       )}
 

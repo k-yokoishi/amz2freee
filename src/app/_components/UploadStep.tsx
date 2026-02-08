@@ -6,8 +6,8 @@ import type { Step } from '@/app/types'
 type UploadStepProps = {
   step: Step
   handleStepClick: (next: Step) => void
-  sourceType: 'amazon' | 'jcb'
-  setSourceType: (value: 'amazon' | 'jcb') => void
+  sourceType: 'amazon' | 'jcb' | 'orico'
+  setSourceType: (value: 'amazon' | 'jcb' | 'orico') => void
   isDragging: boolean
   handleDrop: DragEventHandler<HTMLDivElement>
   handleDragOver: DragEventHandler<HTMLDivElement>
@@ -16,7 +16,9 @@ type UploadStepProps = {
   handleFiles: (files: FileList | null) => void
   error: string | null
   jcbFiles: string[]
+  oricoFiles: string[]
   onConfirmJcb: () => void
+  onConfirmOrico: () => void
 }
 
 export default function UploadStep({
@@ -32,7 +34,9 @@ export default function UploadStep({
   handleFiles,
   error,
   jcbFiles,
+  oricoFiles,
   onConfirmJcb,
+  onConfirmOrico,
 }: UploadStepProps) {
   return (
     <div className="flex min-h-screen flex-col">
@@ -66,14 +70,18 @@ export default function UploadStep({
           <div className="flex flex-col gap-4 text-center">
             <div className="flex flex-col gap-2">
               <p className="text-sm font-semibold text-muted-foreground">
-                Amazon / MyJCB → freee会計CSV
+                クレカ・EC明細をfreee会計CSVへ
               </p>
               <h1 className="text-2xl font-semibold tracking-tight">取引データアップロード</h1>
             </div>
-            <Tabs value={sourceType} onValueChange={(value) => setSourceType(value as 'amazon' | 'jcb')}>
+            <Tabs
+              value={sourceType}
+              onValueChange={(value) => setSourceType(value as 'amazon' | 'jcb' | 'orico')}
+            >
               <TabsList className="mx-auto">
                 <TabsTrigger value="amazon">Amazon</TabsTrigger>
                 <TabsTrigger value="jcb">MyJCB</TabsTrigger>
+                <TabsTrigger value="orico">Orico</TabsTrigger>
               </TabsList>
               <TabsContent value="amazon">
                 <p className="text-sm text-muted-foreground">
@@ -85,6 +93,11 @@ export default function UploadStep({
               <TabsContent value="jcb">
                 <p className="text-sm text-muted-foreground">
                   MyJCBの明細CSV（複数ファイル可）をアップロードしてください。
+                </p>
+              </TabsContent>
+              <TabsContent value="orico">
+                <p className="text-sm text-muted-foreground">
+                  Oricoの明細CSV（複数ファイル可）をアップロードしてください。
                 </p>
               </TabsContent>
             </Tabs>
@@ -106,12 +119,12 @@ export default function UploadStep({
               ref={inputRef}
               type="file"
               accept=".csv,text/csv"
-              multiple={sourceType === 'jcb'}
+              multiple={sourceType !== 'amazon'}
               onChange={(event) => handleFiles(event.target.files)}
               className="hidden"
             />
             <Button onClick={() => inputRef.current?.click()}>
-              {sourceType === 'jcb' ? 'CSVを追加' : 'CSVを選択'}
+              {sourceType === 'amazon' ? 'CSVを選択' : 'CSVを追加'}
             </Button>
             {error && <p className="text-sm text-destructive">{error}</p>}
           </div>
@@ -132,6 +145,28 @@ export default function UploadStep({
               )}
               <div>
                 <Button onClick={onConfirmJcb} disabled={jcbFiles.length === 0}>
+                  アップロード確定して次へ
+                </Button>
+              </div>
+            </div>
+          )}
+
+          {sourceType === 'orico' && (
+            <div className="mt-6 flex flex-col gap-3 text-left">
+              <div className="text-sm font-medium">アップロード済み</div>
+              {oricoFiles.length === 0 ? (
+                <p className="text-sm text-muted-foreground">まだファイルがありません。</p>
+              ) : (
+                <ul className="text-sm text-muted-foreground">
+                  {oricoFiles.map((name) => (
+                    <li key={name} className="truncate">
+                      {name}
+                    </li>
+                  ))}
+                </ul>
+              )}
+              <div>
+                <Button onClick={onConfirmOrico} disabled={oricoFiles.length === 0}>
                   アップロード確定して次へ
                 </Button>
               </div>

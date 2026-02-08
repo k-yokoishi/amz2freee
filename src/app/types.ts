@@ -1,6 +1,6 @@
 export type CsvRow = Record<string, string>
 
-export type SourceType = 'amazon' | 'jcb'
+export type SourceType = 'amazon' | 'jcb' | 'orico'
 
 export type ParsedData = {
   rows: CsvRow[]
