@@ -1,3 +1,7 @@
+# amz2freee
+
+Production: https://k-yokoishi.github.io/amz2freee/
+
 This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
 
 ## Getting Started
