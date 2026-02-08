@@ -52,6 +52,7 @@ type ExportStepProps = {
       overrides: RowOverrides
     }
   ) => string[]
+  inferTaxCategory: (row: CsvRow) => string
   FREEE_HEADERS: string[]
 }
 
@@ -71,6 +72,7 @@ export default function ExportStep({
   handleOverrideChange,
   handleExportCsv,
   buildFreeeRow,
+  inferTaxCategory,
   FREEE_HEADERS,
 }: ExportStepProps) {
   return (
@@ -183,7 +185,8 @@ export default function ExportStep({
                     const key = rowKey(row) || String(index)
                     const override = rowOverrides[key] ?? {}
                     const accountValue = override.accountTitle ?? accountTitle ?? ''
-                    const taxValue = override.taxCategory ?? taxCategory ?? ''
+                    const taxValue =
+                      override.taxCategory ?? taxCategory ?? inferTaxCategory(row) ?? ''
                     return (
                       <TableRow key={key}>
                         {cells.map((cell, cellIndex) => {

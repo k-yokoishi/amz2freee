@@ -118,6 +118,26 @@ function calcTaxAmount(row: CsvRow): string {
   return Number.isInteger(total) ? String(total) : total.toFixed(2)
 }
 
+function inferTaxCategory(row: CsvRow): string {
+  const quantity = parseNumber(row['Quantity']) ?? 1
+  const subtotal = parseNumber(row['Shipment Item Subtotal'])
+  const unitPrice = parseNumber(row['Unit Price'])
+  const baseAmount =
+    subtotal ?? (unitPrice !== null && quantity !== null ? unitPrice * quantity : null)
+
+  const directTax = parseNumber(row['Shipment Item Subtotal Tax'])
+  const unitTax = parseNumber(row['Unit Price Tax'])
+  const taxAmount =
+    directTax ?? (unitTax !== null && quantity !== null ? unitTax * quantity : null)
+
+  if (!baseAmount || !taxAmount || baseAmount <= 0 || taxAmount <= 0) return '対象外'
+
+  const rate = taxAmount / baseAmount
+  if (rate >= 0.095) return '課対仕入10%'
+  if (rate >= 0.075) return '課対仕入8%（軽）'
+  return '課対仕入'
+}
+
 function buildFreeeRow(
   row: CsvRow,
   options: {
@@ -133,7 +153,7 @@ function buildFreeeRow(
   const amount = row['Total Owed'] ?? ''
   const override = options.overrides[rowKey(row)] ?? {}
   const accountTitle = override.accountTitle ?? options.accountTitle ?? ''
-  const taxCategory = override.taxCategory ?? options.taxCategory ?? ''
+  const taxCategory = override.taxCategory ?? options.taxCategory ?? inferTaxCategory(row) ?? ''
   const formattedDate = formatJstDate(dateValue)
   return [
     '支出',
@@ -473,6 +493,7 @@ export default function Home() {
               handleOverrideChange={handleOverrideChange}
               handleExportCsv={handleExportCsv}
               buildFreeeRow={buildFreeeRow}
+              inferTaxCategory={inferTaxCategory}
               FREEE_HEADERS={FREEE_HEADERS}
             />
           )}
