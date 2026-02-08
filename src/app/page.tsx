@@ -481,12 +481,8 @@ export default function Home() {
               step={step}
               handleStepClick={handleStepClick}
               accountTitle={accountTitle}
-              setAccountTitle={setAccountTitle}
               taxCategory={taxCategory}
-              setTaxCategory={setTaxCategory}
               settlementBase={settlementBase}
-              setSettlementBase={setSettlementBase}
-              selectedCount={selectedCount}
               selectedRows={selectedRows}
               rowKey={rowKey}
               rowOverrides={rowOverrides}

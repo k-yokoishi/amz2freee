@@ -32,12 +32,8 @@ type ExportStepProps = {
   step: Step
   handleStepClick: (next: Step) => void
   accountTitle: string
-  setAccountTitle: (value: string) => void
   taxCategory: string
-  setTaxCategory: (value: string) => void
   settlementBase: 'order' | 'ship'
-  setSettlementBase: (value: 'order' | 'ship') => void
-  selectedCount: number
   selectedRows: CsvRow[]
   rowKey: (row: CsvRow) => string
   rowOverrides: RowOverrides
@@ -60,12 +56,8 @@ export default function ExportStep({
   step,
   handleStepClick,
   accountTitle,
-  setAccountTitle,
   taxCategory,
-  setTaxCategory,
   settlementBase,
-  setSettlementBase,
-  selectedCount,
   selectedRows,
   rowKey,
   rowOverrides,
@@ -105,56 +97,6 @@ export default function ExportStep({
 
       <div className="mx-auto flex w-full max-w-6xl flex-1 flex-col gap-8 px-6 pb-10 pt-4">
         <section className="flex flex-col gap-6">
-          <div className="rounded-3xl border border-border bg-card p-6 shadow-sm">
-            <h2 className="text-lg font-semibold">エクスポート設定</h2>
-            <div className="mt-4 grid gap-4 md:grid-cols-2">
-              <div className="flex flex-col gap-2">
-                <label className="text-sm font-medium">勘定科目</label>
-                <Input
-                  placeholder="例: 消耗品費"
-                  value={accountTitle}
-                  onChange={(event) => setAccountTitle(event.target.value)}
-                />
-              </div>
-              <div className="flex flex-col gap-2">
-                <label className="text-sm font-medium">税区分</label>
-                <Select value={taxCategory || undefined} onValueChange={setTaxCategory}>
-                  <SelectTrigger>
-                    <SelectValue placeholder="選択" />
-                  </SelectTrigger>
-                  <SelectContent position="popper" align="start" sideOffset={6} className="z-[100]">
-                    {TAX_CATEGORY_OPTIONS.map((option) => (
-                      <SelectItem key={option} value={option}>
-                        {option}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-              <div className="flex flex-col gap-2">
-                <label className="text-sm font-medium">決済日基準</label>
-                <Select
-                  value={settlementBase}
-                  onValueChange={(value) => setSettlementBase(value as 'order' | 'ship')}
-                >
-                  <SelectTrigger>
-                    <SelectValue placeholder="選択" />
-                  </SelectTrigger>
-                  <SelectContent position="popper" align="start" sideOffset={6} className="z-[100]">
-                    <SelectItem value="order">Order Date</SelectItem>
-                    <SelectItem value="ship">Ship Date</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-              <div className="flex flex-col gap-2">
-                <label className="text-sm font-medium">選択件数</label>
-                <div className="text-sm text-muted-foreground">
-                  {selectedCount.toLocaleString()} 件
-                </div>
-              </div>
-            </div>
-          </div>
-
           <div className="rounded-3xl border border-border bg-card p-6 shadow-sm">
             <div className="flex flex-wrap items-center justify-between gap-3">
               <h2 className="text-lg font-semibold">エクスポートCSVプレビュー</h2>
