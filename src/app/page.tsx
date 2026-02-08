@@ -83,8 +83,8 @@ const FREEE_HEADERS = [
   '管理番号',
   '発生日',
   '決済期日',
-  '取引先',
   '取引先コード',
+  '取引先',
   '勘定科目',
   '税区分',
   '金額',
@@ -94,12 +94,12 @@ const FREEE_HEADERS = [
   '品目',
   '部門',
   'メモタグ（複数指定可、カンマ区切り）',
-  '決済日',
-  '決済口座',
-  '決済金額',
   'セグメント1',
   'セグメント2',
   'セグメント3',
+  '決済日',
+  '決済口座',
+  '決済金額',
 ]
 
 function escapeCsvCell(value: string): string {
@@ -166,8 +166,8 @@ function buildFreeeRow(
     row['Order ID'] ?? '',
     formattedDate,
     '',
-    'Amazon.co.jp',
     '',
+    'Amazon.co.jp',
     accountTitle,
     taxCategory,
     amount,
@@ -177,17 +177,18 @@ function buildFreeeRow(
     productName,
     '',
     '',
+    '',
+    '',
+    '',
     formattedDate,
     '',
     amount,
-    '',
-    '',
-    '',
   ]
 }
 
 function downloadCsv(filename: string, content: string) {
-  const blob = new Blob([content], { type: 'text/csv;charset=utf-8' })
+  const bom = '\ufeff'
+  const blob = new Blob([bom, content], { type: 'text/csv;charset=utf-8' })
   const url = URL.createObjectURL(blob)
   const anchor = document.createElement('a')
   anchor.href = url
