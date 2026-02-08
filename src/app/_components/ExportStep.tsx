@@ -161,6 +161,7 @@ export default function ExportStep({
                 <TableBody>
                   {selectedRows.map((row, index) => {
                     const cells = buildFreeeRow(row, {
+                      accountTitle: '',
                       taxCategory,
                       settlementBase,
                       overrides: rowOverrides,
