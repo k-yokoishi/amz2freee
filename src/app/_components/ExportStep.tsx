@@ -184,14 +184,14 @@ export default function ExportStep({
                               <TableCell key={`${key}-account`}>
                                 <DropdownMenu>
                                   <DropdownMenuTrigger asChild>
-                                    <Button variant="outline" size="sm" className="h-8">
+                                    <Button variant="outline" size="sm" className="h-8 min-w-[240px] justify-between">
                                       {accountValue || '選択'}
                                     </Button>
                                   </DropdownMenuTrigger>
                                   <DropdownMenuContent
                                     align="start"
                                     sideOffset={6}
-                                    className="max-h-[60vh] w-72 overflow-auto"
+                                    className="max-h-[60vh] min-w-[240px] overflow-auto"
                                   >
                                     {recentAccounts.length > 0 && (
                                       <>
@@ -216,14 +216,14 @@ export default function ExportStep({
                                       <DropdownMenuSub key={`${key}-${group.middle}`}>
                                         <DropdownMenuSubTrigger>{group.middle}</DropdownMenuSubTrigger>
                                         <DropdownMenuPortal>
-                                          <DropdownMenuSubContent className="max-h-[60vh] w-72 overflow-auto">
+                                          <DropdownMenuSubContent className="max-h-[60vh] min-w-[240px] overflow-auto">
                                             {group.smalls.map((smallGroup) => (
                                               <DropdownMenuSub key={`${key}-${group.middle}-${smallGroup.small}`}>
                                                 <DropdownMenuSubTrigger>
                                                   {smallGroup.small}
                                                 </DropdownMenuSubTrigger>
                                                 <DropdownMenuPortal>
-                                                  <DropdownMenuSubContent className="max-h-[60vh] w-72 overflow-auto">
+                                                  <DropdownMenuSubContent className="max-h-[60vh] min-w-[240px] overflow-auto">
                                                     {smallGroup.items.map((item) => (
                                                       <DropdownMenuItem
                                                         key={`${key}-${group.middle}-${smallGroup.small}-${item.account}`}
