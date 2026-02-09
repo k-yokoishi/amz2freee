@@ -42,6 +42,16 @@ function normalizeYenAmount(value: string | undefined): string {
   return value.replace(/[\\\\,]/g, '').trim()
 }
 
+function useDebouncedValue<T>(value: T, delayMs = 300): T {
+  const [debounced, setDebounced] = useState(value)
+
+  useEffect(() => {
+    const timer = setTimeout(() => setDebounced(value), delayMs)
+    return () => clearTimeout(timer)
+  }, [value, delayMs])
+
+  return debounced
+}
 function safeDate(value: string): Date | null {
   if (!value) return null
   const d = new Date(value)
@@ -110,7 +120,7 @@ function buildFreeeCsv(
     taxCategory: string
     settlementBase: 'order' | 'ship'
     overrides: RowOverrides
-  }
+  },
 ): string {
   const lines: string[][] = [FREEE_HEADERS]
   for (const row of rows) {
@@ -121,7 +131,7 @@ function buildFreeeCsv(
 
 function parseJcbRows(rows: string[][]): CsvRow[] {
   const headerIndex = rows.findIndex(
-    (row) => row.includes('ご利用日') && row.includes('ご利用先など')
+    (row) => row.includes('ご利用日') && row.includes('ご利用先など'),
   )
   if (headerIndex === -1) return []
   const headers = rows[headerIndex]
@@ -161,7 +171,7 @@ function parseJcbRows(rows: string[][]): CsvRow[] {
 
 function parseOricoRows(rows: string[][]): CsvRow[] {
   const headerIndex = rows.findIndex(
-    (row) => row.includes('ご利用日') && row.includes('ご利用先など')
+    (row) => row.includes('ご利用日') && row.includes('ご利用先など'),
   )
   if (headerIndex === -1) return []
   const headers = rows[headerIndex]
@@ -177,9 +187,7 @@ function parseOricoRows(rows: string[][]): CsvRow[] {
     const usageDate = normalizeOricoDate(map['ご利用日'])
     const merchant = (map['ご利用先など'] ?? '').trim()
     const amount =
-      normalizeYenAmount(map['当月ご請求額']) ||
-      normalizeYenAmount(map['ご利用金額']) ||
-      ''
+      normalizeYenAmount(map['当月ご請求額']) || normalizeYenAmount(map['ご利用金額']) || ''
     if (!usageDate && !merchant && !amount) continue
     result.push({
       Website: 'Orico',
@@ -228,8 +236,7 @@ function inferTaxCategory(row: CsvRow): string {
 
   const directTax = parseNumber(row['Shipment Item Subtotal Tax'])
   const unitTax = parseNumber(row['Unit Price Tax'])
-  const taxAmount =
-    directTax ?? (unitTax !== null && quantity !== null ? unitTax * quantity : null)
+  const taxAmount = directTax ?? (unitTax !== null && quantity !== null ? unitTax * quantity : null)
 
   if (!baseAmount || !taxAmount || baseAmount <= 0 || taxAmount <= 0) return '対象外'
 
@@ -251,7 +258,7 @@ function buildFreeeRow(
     taxCategory: string
     settlementBase: 'order' | 'ship'
     overrides: RowOverrides
-  }
+  },
 ): string[] {
   const dateValue = options.settlementBase === 'ship' ? row['Ship Date'] : row['Order Date']
   const productName = row['Product Name'] ?? ''
@@ -306,6 +313,7 @@ export default function Home() {
   const [error, setError] = useState<string | null>(null)
   const [selectedKeys, setSelectedKeys] = useState<Set<string>>(new Set())
   const [selectedYear, setSelectedYear] = useState<string>('all')
+  const [searchQuery, setSearchQuery] = useState<string>('')
   const [sourceType, setSourceType] = useState<SourceType>('amazon')
   const [taxCategory] = useState('')
   const [settlementBase] = useState<'order' | 'ship'>('order')
@@ -314,6 +322,7 @@ export default function Home() {
   const [isLoadingCsv, setIsLoadingCsv] = useState(true)
   const [jcbUploads, setJcbUploads] = useState<Array<{ name: string; rows: CsvRow[] }>>([])
   const [oricoUploads, setOricoUploads] = useState<Array<{ name: string; rows: CsvRow[] }>>([])
+  const debouncedSearchQuery = useDebouncedValue(searchQuery, 300)
 
   useEffect(() => {
     const raw = localStorage.getItem(STORAGE_KEY)
@@ -342,10 +351,7 @@ export default function Home() {
   }, [selectedKeys])
 
   useEffect(() => {
-    localStorage.setItem(
-      SELECTED_YEAR_STORAGE_KEY,
-      JSON.stringify({ year: selectedYear })
-    )
+    localStorage.setItem(SELECTED_YEAR_STORAGE_KEY, JSON.stringify({ year: selectedYear }))
   }, [selectedYear])
 
   useEffect(() => {
@@ -401,12 +407,21 @@ export default function Home() {
 
   const filteredRows = useMemo(() => {
     if (!parsed) return [] as CsvRow[]
-    if (selectedYear === 'all') return parsed.rows
-    return parsed.rows.filter((row) => {
-      const date = safeDate(row['Order Date'])
-      return date ? String(date.getFullYear()) === selectedYear : false
-    })
-  }, [parsed, selectedYear])
+    let rows = parsed.rows
+    const query = debouncedSearchQuery.trim().toLowerCase()
+    rows = rows.filter((row) =>
+      Object.values(row).some((value) => value.toLocaleLowerCase().includes(query)),
+    )
+    if (selectedYear !== 'all') {
+      rows = rows.filter((row) => {
+        const date = safeDate(row['Order Date'])
+        return date ? String(date.getFullYear()) === selectedYear : false
+      })
+    }
+    return rows
+  }, [parsed, selectedYear, debouncedSearchQuery])
+
+  console.log('debouncedSearchQuery', debouncedSearchQuery, filteredRows.length)
 
   const selectedCount = useMemo(() => {
     let count = 0
@@ -430,7 +445,7 @@ export default function Home() {
     })
     const now = new Date()
     const stamp = `${now.getFullYear()}${String(now.getMonth() + 1).padStart(2, '0')}${String(
-      now.getDate()
+      now.getDate(),
     ).padStart(2, '0')}`
     downloadCsv(`amazon_freee_${stamp}.csv`, csv)
   }
@@ -588,7 +603,7 @@ export default function Home() {
   const handleOverrideChange = (
     row: CsvRow,
     key: 'accountTitle' | 'taxCategory',
-    value: string
+    value: string,
   ) => {
     const k = rowKey(row)
     setRowOverrides((prev) => ({
@@ -644,6 +659,8 @@ export default function Home() {
               years={years}
               selectedYear={selectedYear}
               setSelectedYear={setSelectedYear}
+              searchQuery={searchQuery}
+              setSearchQuery={setSearchQuery}
               handleToggleAll={handleToggleAll}
               handleRowToggle={handleRowToggle}
               rowKey={rowKey}

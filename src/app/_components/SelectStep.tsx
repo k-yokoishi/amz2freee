@@ -1,4 +1,5 @@
 import { Button } from '@/components/ui/button'
+import { Input } from '@/components/ui/input'
 import { Checkbox } from '@/components/ui/checkbox'
 import {
   Select,
@@ -28,6 +29,8 @@ type SelectStepProps = {
   years: string[]
   selectedYear: string
   setSelectedYear: (value: string) => void
+  searchQuery: string
+  setSearchQuery: (value: string) => void
   handleToggleAll: () => void
   handleRowToggle: (row: CsvRow) => void
   rowKey: (row: CsvRow) => string
@@ -46,6 +49,8 @@ export default function SelectStep({
   years,
   selectedYear,
   setSelectedYear,
+  searchQuery,
+  setSearchQuery,
   handleToggleAll,
   handleRowToggle,
   rowKey,
@@ -82,13 +87,22 @@ export default function SelectStep({
 
       <div className="mx-auto flex w-full max-w-6xl flex-1 flex-col gap-8 px-6 pb-10 pt-4">
         <section className="flex min-h-0 flex-1 flex-col rounded-3xl border border-border bg-card p-6 shadow-sm">
-          <div className="flex flex-wrap items-center justify-between gap-3">
+            <div className="flex flex-wrap items-center justify-between gap-3">
             <div className="flex items-center gap-3">
               <h2 className="text-lg font-semibold">注文一覧</h2>
               <span className="text-sm text-muted-foreground">全{totalRows.toLocaleString()}件</span>
             </div>
             <div className="flex flex-wrap items-center gap-3 text-sm text-muted-foreground">
               <span>{selectedCount.toLocaleString()}件選択中</span>
+              <div className="flex items-center gap-2">
+                <span>検索</span>
+                <Input
+                  className="h-8 w-[220px]"
+                  placeholder="注文ID / 商品名 など"
+                  value={searchQuery}
+                  onChange={(event) => setSearchQuery(event.target.value)}
+                />
+              </div>
               <div className="flex items-center gap-2">
                 <span>対象年</span>
                 <Select value={selectedYear} onValueChange={setSelectedYear}>
