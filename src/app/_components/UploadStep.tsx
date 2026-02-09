@@ -85,6 +85,17 @@ export default function UploadStep({
               </TabsList>
               <TabsContent value="amazon">
                 <p className="text-sm text-muted-foreground">
+                  取得方法はこちら:{' '}
+                  <a
+                    href="https://aplos.jp/amazon-csv/"
+                    target="_blank"
+                    rel="noreferrer"
+                    className="text-primary underline-offset-4 hover:underline"
+                  >
+                    aplos.jp/amazon-csv
+                  </a>
+                </p>
+                <p className="text-sm text-muted-foreground">
                   アップロード対象は{' '}
                   <span className="font-medium text-foreground">Retail.OrderHistory.3.csv</span>{' '}
                   です。
