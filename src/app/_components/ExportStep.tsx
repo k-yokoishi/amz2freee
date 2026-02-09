@@ -32,7 +32,6 @@ type ExportStepProps = {
   taxCategory: string
   settlementBase: 'order' | 'ship'
   selectedRows: CsvRow[]
-  rowKey: (row: CsvRow) => string
   rowOverrides: RowOverrides
   handleOverrideChange: (row: CsvRow, key: 'accountTitle' | 'taxCategory', value: string) => void
   handleExportCsv: () => void
@@ -55,7 +54,6 @@ export default function ExportStep({
   taxCategory,
   settlementBase,
   selectedRows,
-  rowKey,
   rowOverrides,
   handleOverrideChange,
   handleExportCsv,
@@ -166,7 +164,7 @@ export default function ExportStep({
                       settlementBase,
                       overrides: rowOverrides,
                     })
-                    const key = rowKey(row) || String(index)
+                    const key = row.id || String(index)
                     const override = rowOverrides[key] ?? {}
                     const overrideTax = override.taxCategory?.trim()
                     const baseTax = taxCategory?.trim()

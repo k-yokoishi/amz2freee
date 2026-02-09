@@ -1,4 +1,7 @@
-export type CsvRow = Record<string, string>
+export type CsvRow = {
+  id: string
+  value: Record<string, string>
+}
 
 export type SourceType = 'amazon' | 'jcb' | 'orico'
 

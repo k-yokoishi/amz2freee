@@ -33,7 +33,6 @@ type SelectStepProps = {
   setSearchQuery: (value: string) => void
   handleToggleAll: () => void
   handleRowToggle: (row: CsvRow) => void
-  rowKey: (row: CsvRow) => string
   selectedKeys: Set<string>
   onGoToExport: () => void
 }
@@ -53,7 +52,6 @@ export default function SelectStep({
   setSearchQuery,
   handleToggleAll,
   handleRowToggle,
-  rowKey,
   selectedKeys,
   onGoToExport,
 }: SelectStepProps) {
@@ -149,7 +147,7 @@ export default function SelectStep({
               </TableHeader>
               <TableBody>
                 {filteredRows.map((row, index) => {
-                  const key = rowKey(row) || String(index)
+                    const key = row.id || String(index)
                   const isChecked = selectedKeys.has(key)
                   return (
                     <TableRow
@@ -163,20 +161,22 @@ export default function SelectStep({
                           onCheckedChange={() => handleRowToggle(row)}
                         />
                       </TableCell>
-                      <TableCell className="whitespace-nowrap">{row['Order Date'] ?? '-'}</TableCell>
-                      <TableCell className="whitespace-nowrap">{row['Order ID'] ?? '-'}</TableCell>
+                          <TableCell className="whitespace-nowrap">{row.value['Order Date'] ?? '-'}</TableCell>
+                      <TableCell className="whitespace-nowrap">{row.value['Order ID'] ?? '-'}</TableCell>
                       <TableCell className="min-w-[260px] max-w-[360px] truncate">
-                        {row['Product Name'] ?? '-'}
+                        {row.value['Product Name'] ?? '-'}
                       </TableCell>
-                      <TableCell className="text-right">{row['Quantity'] ?? '-'}</TableCell>
+                      <TableCell className="text-right">{row.value['Quantity'] ?? '-'}</TableCell>
                       <TableCell className="text-right">
-                        {row['Total Owed'] ? `${row['Total Owed']} ${row['Currency'] ?? ''}` : '-'}
+                        {row.value['Total Owed']
+                          ? `${row.value['Total Owed']} ${row.value['Currency'] ?? ''}`
+                          : '-'}
                       </TableCell>
                       <TableCell className="whitespace-nowrap">
-                        {row['Payment Instrument Type'] ?? '-'}
+                        {row.value['Payment Instrument Type'] ?? '-'}
                       </TableCell>
                       <TableCell className="whitespace-nowrap">
-                        {row['Shipment Status'] ?? '-'}
+                        {row.value['Shipment Status'] ?? '-'}
                       </TableCell>
                     </TableRow>
                   )
