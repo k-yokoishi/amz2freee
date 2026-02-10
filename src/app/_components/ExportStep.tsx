@@ -67,7 +67,11 @@ export default function ExportStep({
 }: ExportStepProps) {
   const expenseGroup = freeeAccountItems.find((group) => group.large === '費用')
   const accountGroups = expenseGroup ? expenseGroup.middles : []
-  const groupedBySmall = accountGroups.map((group) => {
+  const filteredAccountGroups = accountGroups.map((group) => ({
+    ...group,
+    items: group.items.filter((item) => !/[()（）]/.test(item.account)),
+  }))
+  const groupedBySmall = filteredAccountGroups.map((group) => {
     const buckets = new Map<string, typeof group.items>()
     for (const item of group.items) {
       const key = item.small?.trim() || 'その他'
@@ -84,7 +88,7 @@ export default function ExportStep({
     }
   })
   const flatSmallItems: Array<{ small: string; account: string }> = []
-  for (const group of accountGroups) {
+  for (const group of filteredAccountGroups) {
     for (const item of group.items) {
       flatSmallItems.push({ small: item.small?.trim() || 'その他', account: item.account })
     }
@@ -352,7 +356,7 @@ export default function ExportStep({
                                               </DropdownMenuPortal>
                                             </DropdownMenuSub>
                                           ))}
-                                          {accountGroups.length === 0 && (
+                                          {filteredAccountGroups.length === 0 && (
                                             <DropdownMenuItem disabled>
                                               候補がありません
                                             </DropdownMenuItem>
