@@ -1,3 +1,4 @@
+import { useMemo, useState } from 'react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Checkbox } from '@/components/ui/checkbox'
@@ -17,6 +18,7 @@ import {
   TableRow,
 } from '@/components/ui/table'
 import type { CsvRow, Step } from '@/app/types'
+import { ArrowDownAZ, ArrowUpAZ, ArrowUpDown } from 'lucide-react'
 
 type SelectStepProps = {
   step: Step
@@ -53,6 +55,71 @@ export default function SelectStep({
   selectedKeys,
   onGoToExport,
 }: SelectStepProps) {
+  const [sort, setSort] = useState<{ key: string; direction: 'asc' | 'desc' }>({
+    key: 'Order Date',
+    direction: 'desc',
+  })
+
+  const columns: Array<{
+    label: string
+    key: string
+    type: 'string' | 'number' | 'date'
+    align?: 'right'
+  }> = [
+    { label: '注文日', key: 'Order Date', type: 'date' },
+    { label: '注文ID', key: 'Order ID', type: 'string' },
+    { label: '商品名', key: 'Product Name', type: 'string' },
+    { label: '数量', key: 'Quantity', type: 'number', align: 'right' },
+    { label: '金額', key: 'Total Owed', type: 'number', align: 'right' },
+    { label: '支払い', key: 'Payment Instrument Type', type: 'string' },
+    { label: '配送状況', key: 'Shipment Status', type: 'string' },
+  ]
+
+  const parseNumber = (value: string | undefined) => {
+    if (!value) return null
+    const normalized = value.replace(/,/g, '')
+    const num = Number(normalized)
+    return Number.isNaN(num) ? null : num
+  }
+
+  const parseDate = (value: string | undefined) => {
+    if (!value) return null
+    const date = new Date(value.replace(/\//g, '-'))
+    return Number.isNaN(date.getTime()) ? null : date.getTime()
+  }
+
+  const sortedRows = useMemo(() => {
+    const column = columns.find((item) => item.key === sort.key)
+    if (!column) return filteredRows
+    const next = [...filteredRows]
+    next.sort((a, b) => {
+      const aValue = a.value[column.key] ?? ''
+      const bValue = b.value[column.key] ?? ''
+      let compare = 0
+      if (column.type === 'number') {
+        const aNum = parseNumber(aValue) ?? 0
+        const bNum = parseNumber(bValue) ?? 0
+        compare = aNum - bNum
+      } else if (column.type === 'date') {
+        const aDate = parseDate(aValue) ?? 0
+        const bDate = parseDate(bValue) ?? 0
+        compare = aDate - bDate
+      } else {
+        compare = String(aValue).localeCompare(String(bValue))
+      }
+      return sort.direction === 'asc' ? compare : -compare
+    })
+    return next
+  }, [columns, filteredRows, sort])
+
+  const handleSort = (key: string) => {
+    setSort((prev) =>
+      prev.key === key
+        ? { key, direction: prev.direction === 'asc' ? 'desc' : 'asc' }
+        : { key, direction: 'asc' },
+    )
+  }
+
   return (
     <div className="flex min-h-screen flex-col">
       <header className="flex h-16 items-center justify-center px-6">
@@ -142,17 +209,35 @@ export default function SelectStep({
                       />
                     </div>
                   </TableHead>
-                  <TableHead>注文日</TableHead>
-                  <TableHead>注文ID</TableHead>
-                  <TableHead>商品名</TableHead>
-                  <TableHead className="text-right">数量</TableHead>
-                  <TableHead className="text-right">金額</TableHead>
-                  <TableHead>支払い</TableHead>
-                  <TableHead>配送状況</TableHead>
+                {columns.map((column) => {
+                  const isActive = sort.key === column.key
+                  const Icon = isActive
+                    ? sort.direction === 'asc'
+                      ? ArrowUpAZ
+                      : ArrowDownAZ
+                    : ArrowUpDown
+                  return (
+                    <TableHead
+                      key={column.key}
+                      className={column.align === 'right' ? 'text-right' : undefined}
+                    >
+                      <button
+                        type="button"
+                        className={`inline-flex items-center gap-1 ${
+                          column.align === 'right' ? 'justify-end w-full' : ''
+                        }`}
+                        onClick={() => handleSort(column.key)}
+                      >
+                        <span>{column.label}</span>
+                        <Icon className="size-4 text-muted-foreground" />
+                      </button>
+                    </TableHead>
+                  )
+                })}
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {filteredRows.map((row, index) => {
+                {sortedRows.map((row, index) => {
                   const key = row.id || String(index)
                   const isChecked = selectedKeys.has(key)
                   return (

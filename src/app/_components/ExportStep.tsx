@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import AccountSearchDialog from '@/app/_components/AccountSearchDialog'
 import { Button } from '@/components/ui/button'
 import { Checkbox } from '@/components/ui/checkbox'
@@ -22,7 +22,7 @@ import {
 } from '@/components/ui/table'
 import type { CsvRow, RowOverrides, Step } from '@/app/types'
 import { freeeAccountItems } from '@/data/freeeAccountItems'
-import { SearchIcon } from 'lucide-react'
+import { ArrowDownAZ, ArrowUpAZ, ArrowUpDown, SearchIcon } from 'lucide-react'
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip'
 
 const RECENT_ACCOUNTS_KEY = 'amz2freee:recent-accounts:v1'
@@ -110,6 +110,10 @@ export default function ExportStep({
   const [dialogOpen, setDialogOpen] = useState(false)
   const [dialogTargets, setDialogTargets] = useState<CsvRow[]>([])
   const [checkedRowIds, setCheckedRowIds] = useState<Set<string>>(() => new Set())
+  const [sort, setSort] = useState<{ index: number; direction: 'asc' | 'desc' }>({
+    index: 0,
+    direction: 'desc',
+  })
 
   useEffect(() => {
     setCheckedRowIds((prev) => {
@@ -157,6 +161,82 @@ export default function ExportStep({
     if (rows.length === 0) return
     setDialogTargets(rows)
     setDialogOpen(true)
+  }
+
+  const displayRows = useMemo(() => {
+    return selectedRows.map((row, index) => {
+      const cells = buildFreeeRow(row, {
+        accountTitle: '',
+        taxCategory,
+        settlementBase,
+        overrides: rowOverrides,
+        sourceType,
+      })
+      const key = row.id || String(index)
+      const override = rowOverrides[key] ?? {}
+      const overrideTax = override.taxCategory?.trim()
+      const baseTax = taxCategory?.trim()
+      const taxValue =
+        overrideTax && overrideTax.length > 0
+          ? overrideTax
+          : baseTax && baseTax.length > 0
+            ? baseTax
+            : (inferTaxCategory(row) ?? '')
+      const accountValue = override.accountTitle?.trim() ?? ''
+      const displayCells = cells.map((cell, cellIndex) => {
+        if (cellIndex === 6) return accountValue || cell
+        if (cellIndex === 7) return taxValue || cell
+        return cell
+      })
+      return { row, key, cells, displayCells, accountValue, taxValue }
+    })
+  }, [
+    buildFreeeRow,
+    inferTaxCategory,
+    rowOverrides,
+    selectedRows,
+    settlementBase,
+    sourceType,
+    taxCategory,
+  ])
+
+  const sortedRows = useMemo(() => {
+    const numericIndices = new Set([8, 10, 20])
+    const dateIndices = new Set([2, 3, 18])
+    const parseNumber = (value: string | undefined) => {
+      if (!value) return 0
+      const normalized = value.replace(/,/g, '')
+      const num = Number(normalized)
+      return Number.isNaN(num) ? 0 : num
+    }
+    const parseDate = (value: string | undefined) => {
+      if (!value) return 0
+      const date = new Date(value.replace(/\//g, '-'))
+      return Number.isNaN(date.getTime()) ? 0 : date.getTime()
+    }
+    const next = [...displayRows]
+    next.sort((a, b) => {
+      const aValue = a.displayCells[sort.index] ?? ''
+      const bValue = b.displayCells[sort.index] ?? ''
+      let compare = 0
+      if (numericIndices.has(sort.index)) {
+        compare = parseNumber(String(aValue)) - parseNumber(String(bValue))
+      } else if (dateIndices.has(sort.index)) {
+        compare = parseDate(String(aValue)) - parseDate(String(bValue))
+      } else {
+        compare = String(aValue).localeCompare(String(bValue))
+      }
+      return sort.direction === 'asc' ? compare : -compare
+    })
+    return next
+  }, [displayRows, sort])
+
+  const handleSort = (index: number) => {
+    setSort((prev) =>
+      prev.index === index
+        ? { index, direction: prev.direction === 'asc' ? 'desc' : 'asc' }
+        : { index, direction: 'asc' },
+    )
   }
 
   const totalAmount = selectedRows.reduce((sum, row) => {
@@ -234,30 +314,37 @@ export default function ExportStep({
                         onCheckedChange={handleToggleAll}
                       />
                     </TableHead>
-                    {FREEE_HEADERS.map((header) => (
-                      <TableHead key={header}>{header}</TableHead>
-                    ))}
+                    {FREEE_HEADERS.map((header, index) => {
+                      const isActive = sort.index === index
+                      const Icon = isActive
+                        ? sort.direction === 'asc'
+                          ? ArrowUpAZ
+                          : ArrowDownAZ
+                        : ArrowUpDown
+                      const alignRight = index === 8 || index === 17
+                      return (
+                        <TableHead
+                          key={header}
+                          className={alignRight ? 'text-right' : undefined}
+                        >
+                          <button
+                            type="button"
+                            className={`inline-flex items-center gap-1 ${
+                              alignRight ? 'justify-end w-full' : ''
+                            }`}
+                            onClick={() => handleSort(index)}
+                          >
+                            <span>{header}</span>
+                            <Icon className="size-4 text-muted-foreground" />
+                          </button>
+                        </TableHead>
+                      )
+                    })}
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {selectedRows.map((row, index) => {
-                    const cells = buildFreeeRow(row, {
-                      accountTitle: '',
-                      taxCategory,
-                      settlementBase,
-                      overrides: rowOverrides,
-                      sourceType,
-                    })
-                    const key = row.id || String(index)
-                    const override = rowOverrides[key] ?? {}
-                    const overrideTax = override.taxCategory?.trim()
-                    const baseTax = taxCategory?.trim()
-                    const taxValue =
-                      overrideTax && overrideTax.length > 0
-                        ? overrideTax
-                        : baseTax && baseTax.length > 0
-                          ? baseTax
-                          : (inferTaxCategory(row) ?? '')
+                  {sortedRows.map((rowData) => {
+                    const { row, key, cells, accountValue, taxValue } = rowData
                     return (
                       <TableRow key={key} onClick={() => handleToggleRow(row)}>
                         <TableCell onClick={(event) => event.stopPropagation()}>
@@ -268,7 +355,6 @@ export default function ExportStep({
                         </TableCell>
                         {cells.map((cell, cellIndex) => {
                           if (cellIndex === 6) {
-                            const accountValue = override.accountTitle?.trim() ?? ''
                             return (
                               <TableCell key={`${key}-account`}>
                                 <div className="flex items-center gap-2">
