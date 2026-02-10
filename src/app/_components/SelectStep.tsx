@@ -172,7 +172,6 @@ export default function SelectStep({
                   />
                 </div>
                 <div className="flex items-center gap-2">
-                  <span>対象年</span>
                   <Select value={selectedYear} onValueChange={setSelectedYear}>
                     <SelectTrigger className="h-8 w-[120px]">
                       <SelectValue placeholder="All" />
@@ -183,10 +182,10 @@ export default function SelectStep({
                       sideOffset={6}
                       className="z-[100]"
                     >
-                      <SelectItem value="all">全て</SelectItem>
+                      <SelectItem value="all">全期間</SelectItem>
                       {years.map((year) => (
                         <SelectItem key={year} value={year}>
-                          {year}
+                          {year}年
                         </SelectItem>
                       ))}
                     </SelectContent>
@@ -212,31 +211,31 @@ export default function SelectStep({
                       />
                     </div>
                   </TableHead>
-                {columns.map((column) => {
-                  const isActive = sort.key === column.key
-                  const Icon = isActive
-                    ? sort.direction === 'asc'
-                      ? ArrowUpAZ
-                      : ArrowDownAZ
-                    : ArrowUpDown
-                  return (
-                    <TableHead
-                      key={column.key}
-                      className={column.align === 'right' ? 'text-right' : undefined}
-                    >
-                      <button
-                        type="button"
-                        className={`inline-flex items-center gap-1 ${
-                          column.align === 'right' ? 'justify-end w-full' : ''
-                        }`}
-                        onClick={() => handleSort(column.key)}
+                  {columns.map((column) => {
+                    const isActive = sort.key === column.key
+                    const Icon = isActive
+                      ? sort.direction === 'asc'
+                        ? ArrowUpAZ
+                        : ArrowDownAZ
+                      : ArrowUpDown
+                    return (
+                      <TableHead
+                        key={column.key}
+                        className={column.align === 'right' ? 'text-right' : undefined}
                       >
-                        <span>{column.label}</span>
-                        <Icon className="size-4 text-muted-foreground" />
-                      </button>
-                    </TableHead>
-                  )
-                })}
+                        <button
+                          type="button"
+                          className={`inline-flex items-center gap-1 ${
+                            column.align === 'right' ? 'justify-end w-full' : ''
+                          }`}
+                          onClick={() => handleSort(column.key)}
+                        >
+                          <span>{column.label}</span>
+                          <Icon className="size-4 text-muted-foreground" />
+                        </button>
+                      </TableHead>
+                    )
+                  })}
                 </TableRow>
               </TableHeader>
               <TableBody>
