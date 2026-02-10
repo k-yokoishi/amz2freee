@@ -155,6 +155,14 @@ export default function ExportStep({
     setDialogOpen(true)
   }
 
+  const totalAmount = selectedRows.reduce((sum, row) => {
+    const raw = row.value['Total Owed'] ?? ''
+    const normalized = raw.replace(/,/g, '')
+    const value = Number(normalized)
+    if (!Number.isFinite(value)) return sum
+    return sum + value
+  }, 0)
+
   return (
     <div className="flex min-h-screen flex-col">
       <header className="flex h-16 items-center justify-center px-6">
@@ -189,6 +197,10 @@ export default function ExportStep({
             <div className="flex flex-wrap items-center justify-between gap-3">
               <h2 className="text-lg font-semibold">エクスポートCSVプレビュー</h2>
               <div className="flex items-center gap-3 text-sm text-muted-foreground">
+                <span>
+                  総{selectedRows.length.toLocaleString()}件 / 合計 ¥
+                  {Math.round(totalAmount).toLocaleString('ja-JP')}
+                </span>
                 <Button
                   variant="outline"
                   disabled={checkedRowIds.size === 0}

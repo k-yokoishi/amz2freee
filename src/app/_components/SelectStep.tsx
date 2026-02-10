@@ -88,7 +88,9 @@ export default function SelectStep({
             <div className="flex flex-wrap items-center justify-between gap-3">
             <div className="flex items-center gap-3">
               <h2 className="text-lg font-semibold">注文一覧</h2>
-              <span className="text-sm text-muted-foreground">全{totalRows.toLocaleString()}件</span>
+              <span className="text-sm text-muted-foreground">
+                全{filteredRows.length.toLocaleString()}件
+              </span>
             </div>
             <div className="flex flex-wrap items-center gap-3 text-sm text-muted-foreground">
               <span>{selectedCount.toLocaleString()}件選択中</span>
