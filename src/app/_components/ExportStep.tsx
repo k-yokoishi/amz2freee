@@ -195,7 +195,7 @@ export default function ExportStep({
         </div>
       </header>
 
-      <div className="mx-auto flex w-full max-w-6xl flex-1 flex-col gap-8 px-6 pb-10 pt-4">
+      <div className="mx-auto flex w-full flex-1 flex-col gap-8 px-6 pb-10 pt-4">
         <section className="flex flex-col gap-6">
           <div className="rounded-3xl border border-border bg-card p-6 shadow-sm">
             <div className="flex flex-wrap items-center justify-between gap-3">
@@ -387,15 +387,14 @@ export default function ExportStep({
                               </TableCell>
                             )
                           }
+                          const cellClassName =
+                            cellIndex === 8 || cellIndex === 17
+                              ? 'text-right'
+                              : cellIndex === 11
+                                ? 'max-w-[400px] truncate'
+                                : 'whitespace-nowrap'
                           return (
-                            <TableCell
-                              key={`${key}-${cellIndex}`}
-                              className={
-                                cellIndex === 8 || cellIndex === 17
-                                  ? 'text-right'
-                                  : 'whitespace-nowrap'
-                              }
-                            >
+                            <TableCell key={`${key}-${cellIndex}`} className={cellClassName}>
                               {cell || '-'}
                             </TableCell>
                           )
