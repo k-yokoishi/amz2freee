@@ -254,7 +254,7 @@ export default function ExportStep({
                           ? baseTax
                           : (inferTaxCategory(row) ?? '')
                     return (
-                      <TableRow key={key}>
+                      <TableRow key={key} onClick={() => handleToggleRow(row)}>
                         <TableCell onClick={(event) => event.stopPropagation()}>
                           <Checkbox
                             checked={checkedRowIds.has(row.id)}

@@ -52,6 +52,12 @@ function parseAmazonDigitalRows(rows: Record<string, string>[]): CsvRow[] {
     const taxNum =
       totalNum !== null && baseNum !== null ? Math.max(totalNum - baseNum, 0) : null
     const taxAmount = taxNum !== null ? String(taxNum) : ''
+    const normalizedTotal =
+      totalNum !== null ? String(Math.floor(totalNum)) : total
+    const normalizedBase =
+      baseNum !== null ? String(Math.floor(baseNum)) : base
+    const normalizedTaxAmount =
+      taxNum !== null ? String(Math.floor(taxNum)) : taxAmount
     return {
       id: crypto.randomUUID(),
       value: {
@@ -62,11 +68,11 @@ function parseAmazonDigitalRows(rows: Record<string, string>[]): CsvRow[] {
         'Product Name': row['ProductName'] || '',
         Quantity: row['QuantityOrdered'] || row['OriginalQuantity'] || '1',
         Currency: row['OurPriceCurrencyCode'] || row['BaseCurrencyCode'] || 'JPY',
-        'Total Owed': total,
-        'Unit Price': base,
-        'Shipment Item Subtotal': base,
-        'Shipment Item Subtotal Tax': taxAmount,
-        'Unit Price Tax': taxAmount,
+        'Total Owed': normalizedTotal,
+        'Unit Price': normalizedBase,
+        'Shipment Item Subtotal': normalizedBase,
+        'Shipment Item Subtotal Tax': normalizedTaxAmount,
+        'Unit Price Tax': normalizedTaxAmount,
         'Payment Instrument Type': 'Amazon Digital',
         'Order Status': row['IsFulfilled'] || '',
         'Shipment Status': row['ItemFulfilled'] || '',
@@ -253,6 +259,13 @@ function parseNumber(value: string | undefined): number | null {
   return Number.isNaN(num) ? null : num
 }
 
+function normalizeIntegerAmount(value: string | undefined): string {
+  if (!value) return ''
+  const num = parseNumber(value)
+  if (num === null) return value
+  return String(Math.floor(num))
+}
+
 function calcTaxAmount(row: CsvRow): string {
   const direct = row.value['Shipment Item Subtotal Tax'] ?? ''
   if (direct) return direct
@@ -301,11 +314,11 @@ function buildFreeeRow(
     options.settlementBase === 'ship' ? row.value['Ship Date'] : row.value['Order Date']
   const productName = row.value['Product Name'] ?? ''
   const noteParts = productName
-  const amount = row.value['Total Owed'] ?? ''
+  const amount = normalizeIntegerAmount(row.value['Total Owed'])
   const override = options.overrides[row.id] ?? {}
   const isDigital = options.sourceType === 'amazon_digital'
   const accountTitle = normalizeOverride(override.accountTitle) ?? (isDigital ? '新聞図書費' : '')
-  const taxCategory = isDigital ? '内税' : '課対仕入10%'
+  const taxCategory = '課対仕入10%'
   const formattedDate = formatJstDate(dateValue)
   return [
     '支出',
@@ -354,7 +367,7 @@ export default function Home() {
   const [selectedYear, setSelectedYear] = useState<string>('all')
   const [searchQuery, setSearchQuery] = useState<string>('')
   const [sourceType, setSourceType] = useState<SourceType>('amazon')
-  const [taxCategory] = useState('')
+  const [taxCategory] = useState('課対仕入10%')
   const [settlementBase] = useState<'order' | 'ship'>('order')
   const [step, setStep] = useState<Step>(1)
   const [rowOverrides, setRowOverrides] = useState<RowOverrides>({})
