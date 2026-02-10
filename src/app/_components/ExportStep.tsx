@@ -199,21 +199,26 @@ export default function ExportStep({
         <section className="flex flex-col gap-6">
           <div className="rounded-3xl border border-border bg-card p-6 shadow-sm">
             <div className="flex flex-wrap items-center justify-between gap-3">
-              <h2 className="text-lg font-semibold">エクスポートCSVプレビュー</h2>
+              <div className="flex flex-wrap items-center gap-3">
+                <h2 className="text-lg font-semibold">エクスポートCSVプレビュー</h2>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  disabled={checkedRowIds.size === 0}
+                  onClick={() =>
+                    openDialogForRows(
+                      selectedRows.filter((row) => checkedRowIds.has(row.id)),
+                    )
+                  }
+                >
+                  勘定科目の一括設定
+                </Button>
+              </div>
               <div className="flex items-center gap-3 text-sm text-muted-foreground">
                 <span>
                   総{selectedRows.length.toLocaleString()}件 / 合計 ¥
                   {Math.round(totalAmount).toLocaleString('ja-JP')}
                 </span>
-                <Button
-                  variant="outline"
-                  disabled={checkedRowIds.size === 0}
-                  onClick={() =>
-                    openDialogForRows(selectedRows.filter((row) => checkedRowIds.has(row.id)))
-                  }
-                >
-                  勘定科目の一括設定
-                </Button>
                 <Button onClick={handleExportCsv} disabled={selectedRows.length === 0}>
                   CSVをエクスポート
                 </Button>

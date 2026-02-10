@@ -43,6 +43,10 @@ function normalizeYenAmount(value: string | undefined): string {
   return value.replace(/[\\\\,]/g, '').trim()
 }
 
+function normalizeSearchText(value: string): string {
+  return value.normalize('NFKC').toLowerCase()
+}
+
 function parseAmazonDigitalRows(rows: Record<string, string>[]): CsvRow[] {
   return rows.map((row) => {
     const total = row['OurPriceTax'] || row['OurPrice'] || ''
@@ -463,9 +467,11 @@ export default function Home() {
   const filteredRows = useMemo(() => {
     if (!parsed) return [] as CsvRow[]
     let rows = parsed.rows
-    const query = debouncedSearchQuery.trim().toLowerCase()
+    const query = normalizeSearchText(debouncedSearchQuery.trim())
     rows = rows.filter((row) =>
-      Object.values(row.value).some((value) => value.toLocaleLowerCase().includes(query)),
+      Object.values(row.value).some((value) =>
+        normalizeSearchText(value ?? '').includes(query),
+      ),
     )
     if (selectedYear !== 'all') {
       rows = rows.filter((row) => {
@@ -711,7 +717,6 @@ export default function Home() {
             <SelectStep
               step={step}
               handleStepClick={handleStepClick}
-              totalRows={parsed.rows.length}
               filteredRows={filteredRows}
               selectedCount={selectedCount}
               allVisibleSelected={allVisibleSelected}

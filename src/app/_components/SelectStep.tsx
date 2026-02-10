@@ -21,7 +21,6 @@ import type { CsvRow, Step } from '@/app/types'
 type SelectStepProps = {
   step: Step
   handleStepClick: (next: Step) => void
-  totalRows: number
   filteredRows: CsvRow[]
   selectedCount: number
   allVisibleSelected: boolean
@@ -40,7 +39,6 @@ type SelectStepProps = {
 export default function SelectStep({
   step,
   handleStepClick,
-  totalRows,
   filteredRows,
   selectedCount,
   allVisibleSelected,
@@ -85,39 +83,45 @@ export default function SelectStep({
 
       <div className="mx-auto flex w-full flex-1 flex-col gap-8 px-6 pb-10 pt-4">
         <section className="flex min-h-0 flex-1 flex-col rounded-3xl border border-border bg-card p-6 shadow-sm">
-            <div className="flex flex-wrap items-center justify-between gap-3">
+          <div className="flex flex-wrap items-center justify-between gap-3">
             <div className="flex items-center gap-3">
-              <h2 className="text-lg font-semibold">注文一覧</h2>
-              <span className="text-sm text-muted-foreground">
-                全{filteredRows.length.toLocaleString()}件
+              <h2 className="text-lg font-semibold">エクスポート対象の選択</h2>
+              <span className="text-sm text-muted-foreground whitespace-nowrap">
+                {selectedCount.toLocaleString()}/{filteredRows.length.toLocaleString()}選択中
               </span>
             </div>
             <div className="flex flex-wrap items-center gap-3 text-sm text-muted-foreground">
-              <span>{selectedCount.toLocaleString()}件選択中</span>
-              <div className="flex items-center gap-2">
-                <span>検索</span>
-                <Input
-                  className="h-8 w-[220px]"
-                  placeholder="注文ID / 商品名 など"
-                  value={searchQuery}
-                  onChange={(event) => setSearchQuery(event.target.value)}
-                />
-              </div>
-              <div className="flex items-center gap-2">
-                <span>対象年</span>
-                <Select value={selectedYear} onValueChange={setSelectedYear}>
-                  <SelectTrigger className="h-8 w-[120px]">
-                    <SelectValue placeholder="All" />
-                  </SelectTrigger>
-                  <SelectContent position="popper" align="start" sideOffset={6} className="z-[100]">
-                    <SelectItem value="all">全て</SelectItem>
-                    {years.map((year) => (
-                      <SelectItem key={year} value={year}>
-                        {year}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+              <div className="flex flex-wrap items-center gap-3">
+                <div className="flex items-center gap-2">
+                  <span>検索</span>
+                  <Input
+                    className="h-8 w-[220px]"
+                    placeholder="注文ID / 商品名 など"
+                    value={searchQuery}
+                    onChange={(event) => setSearchQuery(event.target.value)}
+                  />
+                </div>
+                <div className="flex items-center gap-2">
+                  <span>対象年</span>
+                  <Select value={selectedYear} onValueChange={setSelectedYear}>
+                    <SelectTrigger className="h-8 w-[120px]">
+                      <SelectValue placeholder="All" />
+                    </SelectTrigger>
+                    <SelectContent
+                      position="popper"
+                      align="start"
+                      sideOffset={6}
+                      className="z-[100]"
+                    >
+                      <SelectItem value="all">全て</SelectItem>
+                      {years.map((year) => (
+                        <SelectItem key={year} value={year}>
+                          {year}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
               </div>
               <Button onClick={onGoToExport} disabled={selectedCount === 0}>
                 エクスポート設定へ
@@ -149,7 +153,7 @@ export default function SelectStep({
               </TableHeader>
               <TableBody>
                 {filteredRows.map((row, index) => {
-                    const key = row.id || String(index)
+                  const key = row.id || String(index)
                   const isChecked = selectedKeys.has(key)
                   return (
                     <TableRow
@@ -163,8 +167,12 @@ export default function SelectStep({
                           onCheckedChange={() => handleRowToggle(row)}
                         />
                       </TableCell>
-                          <TableCell className="whitespace-nowrap">{row.value['Order Date'] ?? '-'}</TableCell>
-                      <TableCell className="whitespace-nowrap">{row.value['Order ID'] ?? '-'}</TableCell>
+                      <TableCell className="whitespace-nowrap">
+                        {row.value['Order Date'] ?? '-'}
+                      </TableCell>
+                      <TableCell className="whitespace-nowrap">
+                        {row.value['Order ID'] ?? '-'}
+                      </TableCell>
                       <TableCell className="min-w-[260px] max-w-[360px] truncate">
                         {row.value['Product Name'] ?? '-'}
                       </TableCell>
@@ -185,7 +193,10 @@ export default function SelectStep({
                 })}
                 {filteredRows.length === 0 && (
                   <TableRow>
-                    <TableCell colSpan={8} className="py-8 text-center text-sm text-muted-foreground">
+                    <TableCell
+                      colSpan={8}
+                      className="py-8 text-center text-sm text-muted-foreground"
+                    >
                       該当する年のデータがありません。
                     </TableCell>
                   </TableRow>

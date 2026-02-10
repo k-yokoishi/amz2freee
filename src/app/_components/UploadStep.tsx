@@ -166,7 +166,7 @@ export default function UploadStep({
           </div>
 
           {sourceType === 'jcb' && (
-            <div className="mt-6 flex flex-col gap-3 text-left">
+            <div className="mt-6 flex flex-col items-center gap-3 text-center">
               <div className="text-sm font-medium">アップロード済み</div>
               {jcbFiles.length === 0 ? (
                 <p className="text-sm text-muted-foreground">まだファイルがありません。</p>
@@ -181,14 +181,14 @@ export default function UploadStep({
               )}
               <div>
                 <Button onClick={onConfirmJcb} disabled={jcbFiles.length === 0}>
-                  アップロード確定して次へ
+                  確定して次へ
                 </Button>
               </div>
             </div>
           )}
 
           {sourceType === 'orico' && (
-            <div className="mt-6 flex flex-col gap-3 text-left">
+            <div className="mt-6 flex flex-col items-center gap-3 text-center">
               <div className="text-sm font-medium">アップロード済み</div>
               {oricoFiles.length === 0 ? (
                 <p className="text-sm text-muted-foreground">まだファイルがありません。</p>
@@ -203,7 +203,7 @@ export default function UploadStep({
               )}
               <div>
                 <Button onClick={onConfirmOrico} disabled={oricoFiles.length === 0}>
-                  アップロード確定して次へ
+                  確定して次へ
                 </Button>
               </div>
             </div>
