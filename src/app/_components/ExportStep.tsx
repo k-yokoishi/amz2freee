@@ -295,7 +295,7 @@ export default function ExportStep({
               </div>
               <div className="flex items-center gap-3 text-sm text-muted-foreground">
                 <span>
-                  総{selectedRows.length.toLocaleString()}件 / 合計 ¥
+                  {selectedRows.length.toLocaleString()}件 / 合計 ¥
                   {Math.round(totalAmount).toLocaleString('ja-JP')}
                 </span>
                 <Button onClick={handleExportCsv} disabled={selectedRows.length === 0}>
@@ -322,10 +322,7 @@ export default function ExportStep({
                         : ArrowUpDown
                       const alignRight = index === 8 || index === 17
                       return (
-                        <TableHead
-                          key={header}
-                          className={alignRight ? 'text-right' : undefined}
-                        >
+                        <TableHead key={header} className={alignRight ? 'text-right' : undefined}>
                           <button
                             type="button"
                             className={`inline-flex items-center gap-1 ${
