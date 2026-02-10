@@ -1,12 +1,5 @@
 import { useEffect, useState } from 'react'
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogHeader,
-  DialogTitle,
-} from '@/components/ui/dialog'
-import { Input } from '@/components/ui/input'
+import AccountSearchDialog from '@/app/_components/AccountSearchDialog'
 import { Button } from '@/components/ui/button'
 import { Checkbox } from '@/components/ui/checkbox'
 import {
@@ -111,7 +104,6 @@ export default function ExportStep({
     return []
   })
   const [dialogOpen, setDialogOpen] = useState(false)
-  const [dialogSearch, setDialogSearch] = useState('')
   const [dialogTargets, setDialogTargets] = useState<CsvRow[]>([])
   const [checkedRowIds, setCheckedRowIds] = useState<Set<string>>(() => new Set())
 
@@ -138,16 +130,6 @@ export default function ExportStep({
     })
   }
 
-  const dialogQuery = dialogSearch.trim().toLowerCase()
-  const dialogCandidates = dialogQuery
-    ? flatSmallItems.filter((item) => {
-        return (
-          item.small.toLowerCase().includes(dialogQuery) ||
-          item.account.toLowerCase().includes(dialogQuery)
-        )
-      })
-    : flatSmallItems
-
   const allChecked = selectedRows.length > 0 && checkedRowIds.size === selectedRows.length
   const someChecked = checkedRowIds.size > 0 && !allChecked
 
@@ -170,7 +152,6 @@ export default function ExportStep({
   const openDialogForRows = (rows: CsvRow[]) => {
     if (rows.length === 0) return
     setDialogTargets(rows)
-    setDialogSearch('')
     setDialogOpen(true)
   }
 
@@ -420,7 +401,7 @@ export default function ExportStep({
               </Table>
             </div>
           </div>
-          <Dialog
+          <AccountSearchDialog
             open={dialogOpen}
             onOpenChange={(open) => {
               setDialogOpen(open)
@@ -428,51 +409,17 @@ export default function ExportStep({
                 setDialogTargets([])
               }
             }}
-          >
-            <DialogContent className="max-w-3xl">
-              <DialogHeader>
-                <DialogTitle>勘定科目を検索して選択</DialogTitle>
-                <DialogDescription>
-                  小分類がフラットに並びます。インクリメンタル検索できます。
-                </DialogDescription>
-              </DialogHeader>
-              <div className="flex flex-col gap-4">
-                <Input
-                  placeholder="小分類 / 勘定科目で検索"
-                  value={dialogSearch}
-                  onChange={(event) => setDialogSearch(event.target.value)}
-                />
-                <div className="max-h-[50vh] overflow-auto rounded-md border">
-                  <div className="grid grid-cols-1 gap-1 p-2">
-                    {dialogCandidates.length === 0 && (
-                      <div className="text-sm text-muted-foreground">
-                        該当する項目がありません。
-                      </div>
-                    )}
-                    {dialogCandidates.map((item, idx) => (
-                      <button
-                        key={`${item.small}-${item.account}-${idx}`}
-                        type="button"
-                        className="hover:bg-muted/60 flex w-full items-center justify-between rounded-sm px-2 py-1.5 text-left text-sm"
-                        onClick={() => {
-                          if (dialogTargets.length === 0) return
-                          dialogTargets.forEach((target) => {
-                            handleOverrideChange(target, 'accountTitle', item.account)
-                          })
-                          pushRecentAccount(item.account)
-                          setDialogOpen(false)
-                          setDialogTargets([])
-                        }}
-                      >
-                        <span className="text-muted-foreground">{item.small}</span>
-                        <span className="text-foreground">{item.account}</span>
-                      </button>
-                    ))}
-                  </div>
-                </div>
-              </div>
-            </DialogContent>
-          </Dialog>
+            items={flatSmallItems}
+            onSelect={(account) => {
+              if (dialogTargets.length === 0) return
+              dialogTargets.forEach((target) => {
+                handleOverrideChange(target, 'accountTitle', account)
+              })
+              pushRecentAccount(account)
+              setDialogOpen(false)
+              setDialogTargets([])
+            }}
+          />
         </section>
       </div>
     </div>
