@@ -8,6 +8,7 @@ import {
 } from '@/components/ui/dialog'
 import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
+import { Checkbox } from '@/components/ui/checkbox'
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -111,7 +112,18 @@ export default function ExportStep({
   })
   const [dialogOpen, setDialogOpen] = useState(false)
   const [dialogSearch, setDialogSearch] = useState('')
-  const [dialogRow, setDialogRow] = useState<CsvRow | null>(null)
+  const [dialogTargets, setDialogTargets] = useState<CsvRow[]>([])
+  const [checkedRowIds, setCheckedRowIds] = useState<Set<string>>(() => new Set())
+
+  useEffect(() => {
+    setCheckedRowIds((prev) => {
+      const next = new Set<string>()
+      for (const row of selectedRows) {
+        if (row.id && prev.has(row.id)) next.add(row.id)
+      }
+      return next
+    })
+  }, [selectedRows])
 
   useEffect(() => {
     localStorage.setItem(RECENT_ACCOUNTS_KEY, JSON.stringify(recentAccounts))
@@ -135,6 +147,32 @@ export default function ExportStep({
         )
       })
     : flatSmallItems
+
+  const allChecked = selectedRows.length > 0 && checkedRowIds.size === selectedRows.length
+  const someChecked = checkedRowIds.size > 0 && !allChecked
+
+  const handleToggleAll = () => {
+    setCheckedRowIds((prev) => {
+      if (prev.size === selectedRows.length) return new Set()
+      return new Set(selectedRows.map((row) => row.id))
+    })
+  }
+
+  const handleToggleRow = (row: CsvRow) => {
+    setCheckedRowIds((prev) => {
+      const next = new Set(prev)
+      if (next.has(row.id)) next.delete(row.id)
+      else next.add(row.id)
+      return next
+    })
+  }
+
+  const openDialogForRows = (rows: CsvRow[]) => {
+    if (rows.length === 0) return
+    setDialogTargets(rows)
+    setDialogSearch('')
+    setDialogOpen(true)
+  }
 
   return (
     <div className="flex min-h-screen flex-col">
@@ -170,16 +208,30 @@ export default function ExportStep({
             <div className="flex flex-wrap items-center justify-between gap-3">
               <h2 className="text-lg font-semibold">エクスポートCSVプレビュー</h2>
               <div className="flex items-center gap-3 text-sm text-muted-foreground">
-                <span>全件表示</span>
+                <Button
+                  variant="outline"
+                  disabled={checkedRowIds.size === 0}
+                  onClick={() =>
+                    openDialogForRows(selectedRows.filter((row) => checkedRowIds.has(row.id)))
+                  }
+                >
+                  勘定科目の一括設定
+                </Button>
                 <Button onClick={handleExportCsv} disabled={selectedRows.length === 0}>
                   CSVをエクスポート
                 </Button>
               </div>
             </div>
-            <div className="mt-4 max-h-[60vh] overflow-auto rounded-2xl border border-border">
+            <div className="mt-4 rounded-2xl border border-border">
               <Table>
                 <TableHeader className="sticky top-0 z-10 bg-muted/30">
                   <TableRow>
+                    <TableHead className="w-[48px]">
+                      <Checkbox
+                        checked={allChecked ? true : someChecked ? 'indeterminate' : false}
+                        onCheckedChange={handleToggleAll}
+                      />
+                    </TableHead>
                     {FREEE_HEADERS.map((header) => (
                       <TableHead key={header}>{header}</TableHead>
                     ))}
@@ -206,6 +258,12 @@ export default function ExportStep({
                           : (inferTaxCategory(row) ?? '')
                     return (
                       <TableRow key={key}>
+                        <TableCell onClick={(event) => event.stopPropagation()}>
+                          <Checkbox
+                            checked={checkedRowIds.has(row.id)}
+                            onCheckedChange={() => handleToggleRow(row)}
+                          />
+                        </TableCell>
                         {cells.map((cell, cellIndex) => {
                           if (cellIndex === 6) {
                             const accountValue = override.accountTitle?.trim() ?? ''
@@ -316,9 +374,7 @@ export default function ExportStep({
                                     variant="ghost"
                                     size="icon-sm"
                                     onClick={() => {
-                                      setDialogRow(row)
-                                      setDialogSearch('')
-                                      setDialogOpen(true)
+                                      openDialogForRows([row])
                                     }}
                                   >
                                     <SearchIcon className="size-4" />
@@ -353,7 +409,7 @@ export default function ExportStep({
                   {selectedRows.length === 0 && (
                     <TableRow>
                       <TableCell
-                        colSpan={FREEE_HEADERS.length}
+                        colSpan={FREEE_HEADERS.length + 1}
                         className="py-8 text-center text-sm text-muted-foreground"
                       >
                         まだ選択された注文がありません。
@@ -369,7 +425,7 @@ export default function ExportStep({
             onOpenChange={(open) => {
               setDialogOpen(open)
               if (!open) {
-                setDialogRow(null)
+                setDialogTargets([])
               }
             }}
           >
@@ -399,11 +455,13 @@ export default function ExportStep({
                         type="button"
                         className="hover:bg-muted/60 flex w-full items-center justify-between rounded-sm px-2 py-1.5 text-left text-sm"
                         onClick={() => {
-                          if (!dialogRow) return
-                          handleOverrideChange(dialogRow, 'accountTitle', item.account)
+                          if (dialogTargets.length === 0) return
+                          dialogTargets.forEach((target) => {
+                            handleOverrideChange(target, 'accountTitle', item.account)
+                          })
                           pushRecentAccount(item.account)
                           setDialogOpen(false)
-                          setDialogRow(null)
+                          setDialogTargets([])
                         }}
                       >
                         <span className="text-muted-foreground">{item.small}</span>
