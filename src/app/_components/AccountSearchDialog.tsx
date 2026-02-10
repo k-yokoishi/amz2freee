@@ -1,11 +1,7 @@
 import { useMemo, useState } from 'react'
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-} from '@/components/ui/dialog'
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { Input } from '@/components/ui/input'
+import { ChevronRight } from 'lucide-react'
 
 type AccountSearchDialogProps = {
   open: boolean
@@ -26,10 +22,7 @@ export default function AccountSearchDialog({
     const query = search.trim().toLowerCase()
     if (!query) return items
     return items.filter((item) => {
-      return (
-        item.small.toLowerCase().includes(query) ||
-        item.account.toLowerCase().includes(query)
-      )
+      return item.small.toLowerCase().includes(query) || item.account.toLowerCase().includes(query)
     })
   }, [items, search])
 
@@ -45,7 +38,7 @@ export default function AccountSearchDialog({
     >
       <DialogContent className="max-w-3xl">
         <DialogHeader>
-          <DialogTitle>勘定科目を検索して選択</DialogTitle>
+          <DialogTitle>勘定科目を検索</DialogTitle>
         </DialogHeader>
         <div className="flex flex-col gap-4">
           <Input
@@ -56,19 +49,18 @@ export default function AccountSearchDialog({
           <div className="max-h-[50vh] overflow-auto rounded-md border">
             <div className="grid grid-cols-1 gap-1 p-2">
               {candidates.length === 0 && (
-                <div className="text-sm text-muted-foreground">
-                  該当する項目がありません。
-                </div>
+                <div className="text-sm text-muted-foreground">該当する項目がありません。</div>
               )}
               {candidates.map((item, idx) => (
                 <button
                   key={`${item.small}-${item.account}-${idx}`}
                   type="button"
-                  className="hover:bg-muted/60 flex w-full items-center justify-between rounded-sm px-2 py-1.5 text-left text-sm"
+                  className="hover:bg-muted/60 flex w-full items-center rounded-sm px-2 py-1.5 text-left text-sm"
                   onClick={() => onSelect(item.account)}
                 >
-                  <span className="text-muted-foreground">{item.small}</span>
-                  <span className="text-foreground">{item.account}</span>
+                  <span className="min-w-[100px] text-muted-foreground">{item.small}</span>
+                  <ChevronRight className="size-4 text-muted-foreground" />
+                  <span className="ml-2 text-foreground">{item.account}</span>
                 </button>
               ))}
             </div>

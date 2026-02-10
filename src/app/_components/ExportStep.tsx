@@ -23,7 +23,6 @@ import {
 import type { CsvRow, RowOverrides, Step } from '@/app/types'
 import { freeeAccountItems } from '@/data/freeeAccountItems'
 import { ArrowDownAZ, ArrowUpAZ, ArrowUpDown, SearchIcon } from 'lucide-react'
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip'
 
 const RECENT_ACCOUNTS_KEY = 'amz2freee:recent-accounts:v1'
 
@@ -354,22 +353,18 @@ export default function ExportStep({
                             return (
                               <TableCell key={`${key}-account`}>
                                 <div className="flex items-center gap-2">
-                                  <TooltipProvider>
-                                    <Tooltip delayDuration={200}>
-                                      <DropdownMenu>
-                                        <DropdownMenuTrigger asChild>
-                                          <TooltipTrigger asChild>
-                                            <Button
-                                              variant="outline"
-                                              size="sm"
-                                              className="h-7 w-[200px] justify-between overflow-hidden"
-                                            >
-                                              <span className="truncate">
-                                                {accountValue || '選択'}
-                                              </span>
-                                            </Button>
-                                          </TooltipTrigger>
-                                        </DropdownMenuTrigger>
+                                  <DropdownMenu>
+                                    <DropdownMenuTrigger asChild>
+                                      <Button
+                                        variant="outline"
+                                        size="sm"
+                                        className="h-7 w-[200px] justify-between overflow-hidden"
+                                      >
+                                        <span className="truncate">
+                                          {accountValue || '選択'}
+                                        </span>
+                                      </Button>
+                                    </DropdownMenuTrigger>
                                         <DropdownMenuContent
                                           align="start"
                                           sideOffset={6}
@@ -449,10 +444,7 @@ export default function ExportStep({
                                             </DropdownMenuItem>
                                           )}
                                         </DropdownMenuContent>
-                                      </DropdownMenu>
-                                      <TooltipContent>{accountValue || '選択'}</TooltipContent>
-                                    </Tooltip>
-                                  </TooltipProvider>
+                                  </DropdownMenu>
                                   <Button
                                     type="button"
                                     variant="ghost"
