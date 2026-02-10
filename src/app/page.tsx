@@ -15,6 +15,7 @@ const OVERRIDES_STORAGE_KEY = 'amz2freee:row-overrides:v1'
 const SELECTED_YEAR_STORAGE_KEY = 'amz2freee:selected-year:v1'
 
 const REQUIRED_COLUMNS = ['Order ID', 'Order Date', 'Product Name', 'Total Owed']
+const DIGITAL_REQUIRED_COLUMNS = ['OrderId', 'OrderDate', 'ProductName', 'OurPrice']
 
 function normalizeHeader(value: string): string {
   return value
@@ -40,6 +41,39 @@ function normalizeOricoDate(value: string | undefined): string {
 function normalizeYenAmount(value: string | undefined): string {
   if (!value) return ''
   return value.replace(/[\\\\,]/g, '').trim()
+}
+
+function parseAmazonDigitalRows(rows: Record<string, string>[]): CsvRow[] {
+  return rows.map((row) => {
+    const total = row['OurPriceTax'] || row['OurPrice'] || ''
+    const base = row['OurPrice'] || ''
+    const totalNum = parseNumber(total)
+    const baseNum = parseNumber(base)
+    const taxNum =
+      totalNum !== null && baseNum !== null ? Math.max(totalNum - baseNum, 0) : null
+    const taxAmount = taxNum !== null ? String(taxNum) : ''
+    return {
+      id: crypto.randomUUID(),
+      value: {
+        Website: row['Marketplace'] || 'Amazon',
+        'Order ID': row['OrderId'] || '',
+        'Order Date': row['OrderDate'] || '',
+        'Ship Date': row['FulfilledDate'] || row['OrderDate'] || '',
+        'Product Name': row['ProductName'] || '',
+        Quantity: row['QuantityOrdered'] || row['OriginalQuantity'] || '1',
+        Currency: row['OurPriceCurrencyCode'] || row['BaseCurrencyCode'] || 'JPY',
+        'Total Owed': total,
+        'Unit Price': base,
+        'Shipment Item Subtotal': base,
+        'Shipment Item Subtotal Tax': taxAmount,
+        'Unit Price Tax': taxAmount,
+        'Payment Instrument Type': 'Amazon Digital',
+        'Order Status': row['IsFulfilled'] || '',
+        'Shipment Status': row['ItemFulfilled'] || '',
+        ASIN: row['ASIN'] || '',
+      },
+    }
+  })
 }
 
 function useDebouncedValue<T>(value: T, delayMs = 300): T {
@@ -108,6 +142,7 @@ function buildFreeeCsv(
     taxCategory: string
     settlementBase: 'order' | 'ship'
     overrides: RowOverrides
+    sourceType: SourceType
   },
 ): string {
   const lines: string[][] = [FREEE_HEADERS]
@@ -259,6 +294,7 @@ function buildFreeeRow(
     taxCategory: string
     settlementBase: 'order' | 'ship'
     overrides: RowOverrides
+    sourceType: SourceType
   },
 ): string[] {
   const dateValue =
@@ -267,8 +303,9 @@ function buildFreeeRow(
   const noteParts = productName
   const amount = row.value['Total Owed'] ?? ''
   const override = options.overrides[row.id] ?? {}
-  const accountTitle = normalizeOverride(override.accountTitle) ?? ''
-  const taxCategory = '課対仕入10%'
+  const isDigital = options.sourceType === 'amazon_digital'
+  const accountTitle = normalizeOverride(override.accountTitle) ?? (isDigital ? '新聞図書費' : '')
+  const taxCategory = isDigital ? '内税' : '課対仕入10%'
   const formattedDate = formatJstDate(dateValue)
   return [
     '支出',
@@ -445,6 +482,7 @@ export default function Home() {
       taxCategory,
       settlementBase,
       overrides: rowOverrides,
+      sourceType: parsed?.sourceType ?? 'amazon',
     })
     const now = new Date()
     const stamp = `${now.getFullYear()}${String(now.getMonth() + 1).padStart(2, '0')}${String(
@@ -481,7 +519,7 @@ export default function Home() {
   const handleFiles = async (files: FileList | null) => {
     if (!files || files.length === 0) return
     setError(null)
-    if (sourceType === 'amazon') {
+    if (sourceType === 'amazon' || sourceType === 'amazon_digital') {
       const file = files[0]
       Papa.parse<Record<string, string>>(file, {
         header: true,
@@ -489,17 +527,23 @@ export default function Home() {
         transformHeader: normalizeHeader,
         complete: (result) => {
           const fields = result.meta.fields ?? []
-          const missing = REQUIRED_COLUMNS.filter((col) => !fields.includes(col))
+          const required =
+            sourceType === 'amazon' ? REQUIRED_COLUMNS : DIGITAL_REQUIRED_COLUMNS
+          const missing = required.filter((col) => !fields.includes(col))
           if (missing.length > 0) {
             setParsed(null)
             setError(`必要な列が見つかりません: ${missing.join(', ')}`)
             return
           }
+          const rows =
+            sourceType === 'amazon'
+              ? normalizeRows(result.data)
+              : parseAmazonDigitalRows(result.data)
           const data = {
-            rows: normalizeRows(result.data),
+            rows,
             fields,
             fileName: file.name,
-            sourceType: 'amazon' as SourceType,
+            sourceType: sourceType as SourceType,
           }
           setParsed(data)
           localStorage.setItem(CSV_STORAGE_KEY, JSON.stringify(data))
@@ -676,6 +720,7 @@ export default function Home() {
               handleStepClick={handleStepClick}
               taxCategory={taxCategory}
               settlementBase={settlementBase}
+              sourceType={parsed?.sourceType ?? 'amazon'}
               selectedRows={selectedRows}
               rowOverrides={rowOverrides}
               handleOverrideChange={handleOverrideChange}

@@ -3,7 +3,7 @@ export type CsvRow = {
   value: Record<string, string>
 }
 
-export type SourceType = 'amazon' | 'jcb' | 'orico'
+export type SourceType = 'amazon' | 'amazon_digital' | 'jcb' | 'orico'
 
 export type ParsedData = {
   rows: CsvRow[]

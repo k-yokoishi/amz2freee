@@ -6,8 +6,8 @@ import type { Step } from '@/app/types'
 type UploadStepProps = {
   step: Step
   handleStepClick: (next: Step) => void
-  sourceType: 'amazon' | 'jcb' | 'orico'
-  setSourceType: (value: 'amazon' | 'jcb' | 'orico') => void
+  sourceType: 'amazon' | 'amazon_digital' | 'jcb' | 'orico'
+  setSourceType: (value: 'amazon' | 'amazon_digital' | 'jcb' | 'orico') => void
   isDragging: boolean
   handleDrop: DragEventHandler<HTMLDivElement>
   handleDragOver: DragEventHandler<HTMLDivElement>
@@ -76,10 +76,13 @@ export default function UploadStep({
             </div>
             <Tabs
               value={sourceType}
-              onValueChange={(value) => setSourceType(value as 'amazon' | 'jcb' | 'orico')}
+              onValueChange={(value) =>
+                setSourceType(value as 'amazon' | 'amazon_digital' | 'jcb' | 'orico')
+              }
             >
               <TabsList className="mx-auto">
                 <TabsTrigger value="amazon">Amazon</TabsTrigger>
+                <TabsTrigger value="amazon_digital">Amazon電子書籍等</TabsTrigger>
                 <TabsTrigger value="jcb">MyJCB</TabsTrigger>
                 <TabsTrigger value="orico">Orico</TabsTrigger>
               </TabsList>
@@ -98,6 +101,26 @@ export default function UploadStep({
                 <p className="text-sm text-muted-foreground">
                   アップロード対象は{' '}
                   <span className="font-medium text-foreground">Retail.OrderHistory.3.csv</span>{' '}
+                  です。
+                </p>
+              </TabsContent>
+              <TabsContent value="amazon_digital">
+                <p className="text-sm text-muted-foreground">
+                  取得方法はこちら:{' '}
+                  <a
+                    href="https://aplos.jp/amazon-csv/"
+                    target="_blank"
+                    rel="noreferrer"
+                    className="text-primary underline-offset-4 hover:underline"
+                  >
+                    aplos.jp/amazon-csv
+                  </a>
+                </p>
+                <p className="text-sm text-muted-foreground">
+                  アップロード対象は{' '}
+                  <span className="font-medium text-foreground">
+                    Digital-Ordering.3/Digital Items.csv
+                  </span>{' '}
                   です。
                 </p>
               </TabsContent>
@@ -130,12 +153,14 @@ export default function UploadStep({
               ref={inputRef}
               type="file"
               accept=".csv,text/csv"
-              multiple={sourceType !== 'amazon'}
+              multiple={sourceType === 'jcb' || sourceType === 'orico'}
               onChange={(event) => handleFiles(event.target.files)}
               className="hidden"
             />
             <Button onClick={() => inputRef.current?.click()}>
-              {sourceType === 'amazon' ? 'CSVを選択' : 'CSVを追加'}
+              {sourceType === 'amazon' || sourceType === 'amazon_digital'
+                ? 'CSVを選択'
+                : 'CSVを追加'}
             </Button>
             {error && <p className="text-sm text-destructive">{error}</p>}
           </div>
