@@ -116,16 +116,6 @@ export default function ExportStep({
   })
 
   useEffect(() => {
-    setCheckedRowIds((prev) => {
-      const next = new Set<string>()
-      for (const row of selectedRows) {
-        if (row.id && prev.has(row.id)) next.add(row.id)
-      }
-      return next
-    })
-  }, [selectedRows])
-
-  useEffect(() => {
     localStorage.setItem(RECENT_ACCOUNTS_KEY, JSON.stringify(recentAccounts))
   }, [recentAccounts])
 
@@ -138,12 +128,21 @@ export default function ExportStep({
     })
   }
 
-  const allChecked = selectedRows.length > 0 && checkedRowIds.size === selectedRows.length
-  const someChecked = checkedRowIds.size > 0 && !allChecked
+  const normalizedCheckedRowIds = useMemo(() => {
+    const allowed = new Set(selectedRows.map((row) => row.id))
+    const next = new Set<string>()
+    for (const id of checkedRowIds) {
+      if (allowed.has(id)) next.add(id)
+    }
+    return next
+  }, [checkedRowIds, selectedRows])
+
+  const allChecked = selectedRows.length > 0 && normalizedCheckedRowIds.size === selectedRows.length
+  const someChecked = normalizedCheckedRowIds.size > 0 && !allChecked
 
   const handleToggleAll = () => {
-    setCheckedRowIds((prev) => {
-      if (prev.size === selectedRows.length) return new Set()
+    setCheckedRowIds(() => {
+      if (normalizedCheckedRowIds.size === selectedRows.length) return new Set()
       return new Set(selectedRows.map((row) => row.id))
     })
   }
@@ -284,10 +283,10 @@ export default function ExportStep({
                 <Button
                   variant="outline"
                   size="sm"
-                  disabled={checkedRowIds.size === 0}
+                  disabled={normalizedCheckedRowIds.size === 0}
                   onClick={() =>
                     openDialogForRows(
-                      selectedRows.filter((row) => checkedRowIds.has(row.id)),
+                      selectedRows.filter((row) => normalizedCheckedRowIds.has(row.id)),
                     )
                   }
                 >
@@ -349,7 +348,7 @@ export default function ExportStep({
                       <TableRow key={key} onClick={() => handleToggleRow(row)}>
                         <TableCell onClick={(event) => event.stopPropagation()}>
                           <Checkbox
-                            checked={checkedRowIds.has(row.id)}
+                            checked={normalizedCheckedRowIds.has(row.id)}
                             onCheckedChange={() => handleToggleRow(row)}
                           />
                         </TableCell>

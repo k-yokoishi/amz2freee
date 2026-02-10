@@ -65,15 +65,18 @@ export default function SelectStep({
     key: string
     type: 'string' | 'number' | 'date'
     align?: 'right'
-  }> = [
-    { label: '注文日', key: 'Order Date', type: 'date' },
-    { label: '注文ID', key: 'Order ID', type: 'string' },
-    { label: '商品名', key: 'Product Name', type: 'string' },
-    { label: '数量', key: 'Quantity', type: 'number', align: 'right' },
-    { label: '金額', key: 'Total Owed', type: 'number', align: 'right' },
-    { label: '支払い', key: 'Payment Instrument Type', type: 'string' },
-    { label: '配送状況', key: 'Shipment Status', type: 'string' },
-  ]
+  }> = useMemo(
+    () => [
+      { label: '注文日', key: 'Order Date', type: 'date' },
+      { label: '注文ID', key: 'Order ID', type: 'string' },
+      { label: '商品名', key: 'Product Name', type: 'string' },
+      { label: '数量', key: 'Quantity', type: 'number', align: 'right' },
+      { label: '金額', key: 'Total Owed', type: 'number', align: 'right' },
+      { label: '支払い', key: 'Payment Instrument Type', type: 'string' },
+      { label: '配送状況', key: 'Shipment Status', type: 'string' },
+    ],
+    [],
+  )
 
   const parseNumber = (value: string | undefined) => {
     if (!value) return null
