@@ -67,14 +67,13 @@ export default function Home() {
   const [selectedKeys, setSelectedKeys] = useState<Set<string>>(new Set())
   const [selectedYear, setSelectedYear] = useState<string>('all')
   const [searchQuery, setSearchQuery] = useState<string>('')
-  const [sourceType, setSourceType] = useState<SourceType>('amazon')
+  const [uploadState, setUploadState] = useState<{
+    sourceType: SourceType
+    uploads: Array<{ name: string; rows: CsvRow[] }>
+  }>({ sourceType: 'amazon', uploads: [] })
   const [step, setStep] = useState<Step>(1)
   const [rowOverrides, setRowOverrides] = useState<RowOverrides>({})
   const [isLoadingCsv, setIsLoadingCsv] = useState(true)
-  const [cardUploadsState, setCardUploadsState] = useState<{
-    sourceType: 'jcb' | 'orico' | null
-    uploads: Array<{ name: string; rows: CsvRow[] }>
-  }>({ sourceType: null, uploads: [] })
   const debouncedSearchQuery = useDebouncedValue(searchQuery, 300)
 
   const taxCategory = '課対仕入10%'
@@ -139,7 +138,7 @@ export default function Home() {
         setParsed(next)
         localStorage.setItem(CSV_STORAGE_KEY, JSON.stringify(next))
         setStep(2)
-        setSourceType(data.sourceType ?? 'amazon')
+        setUploadState({ sourceType: data.sourceType ?? 'amazon', uploads: [] })
       }
     } catch {
       // ignore invalid storage
@@ -226,21 +225,21 @@ export default function Home() {
 
     let uploads: ParsedUpload[]
     try {
-      uploads = await parserBySourceType[sourceType](files)
+      uploads = await parserBySourceType[uploadState.sourceType](files)
     } catch (err) {
       const message = err instanceof Error ? err.message : 'CSV読み込みに失敗しました。'
       setError(message)
       return
     }
 
-    switch (sourceType) {
+    switch (uploadState.sourceType) {
       case 'amazon': {
         const first = uploads[0]
         const data: ParsedData = {
           rows: first.rows,
           fields: first.fields,
           fileName: first.name,
-          sourceType,
+          sourceType: uploadState.sourceType,
         }
         setParsed(data)
         localStorage.setItem(CSV_STORAGE_KEY, JSON.stringify(data))
@@ -253,7 +252,7 @@ export default function Home() {
           rows: first.rows,
           fields: first.fields,
           fileName: first.name,
-          sourceType,
+          sourceType: uploadState.sourceType,
         }
         setParsed(data)
         localStorage.setItem(CSV_STORAGE_KEY, JSON.stringify(data))
@@ -261,8 +260,8 @@ export default function Home() {
         return
       }
       case 'jcb': {
-        setCardUploadsState((prev) => ({
-          sourceType: 'jcb',
+        setUploadState((prev) => ({
+          sourceType: prev.sourceType,
           uploads:
             prev.sourceType === 'jcb'
               ? [...prev.uploads, ...uploads].map((upload) => ({
@@ -274,8 +273,8 @@ export default function Home() {
         return
       }
       case 'orico': {
-        setCardUploadsState((prev) => ({
-          sourceType: 'orico',
+        setUploadState((prev) => ({
+          sourceType: prev.sourceType,
           uploads:
             prev.sourceType === 'orico'
               ? [...prev.uploads, ...uploads].map((upload) => ({
@@ -287,7 +286,7 @@ export default function Home() {
         return
       }
       default:
-        return assertNever(sourceType)
+        return assertNever(uploadState.sourceType)
     }
   }
 
@@ -296,27 +295,32 @@ export default function Home() {
     setSelectedKeys(new Set())
     setStep(1)
     setRowOverrides({})
-    setCardUploadsState({ sourceType: null, uploads: [] })
-    setSourceType('amazon')
+    setUploadState({ sourceType: 'amazon', uploads: [] })
     localStorage.removeItem(CSV_STORAGE_KEY)
     localStorage.removeItem(STORAGE_KEY)
     localStorage.removeItem(OVERRIDES_STORAGE_KEY)
   }
 
   const handleConfirmCardUpload = () => {
-    if (sourceType !== 'jcb' && sourceType !== 'orico') return
-    if (cardUploadsState.sourceType !== sourceType) return
-    if (cardUploadsState.uploads.length === 0) return
-    const rows = normalizeRows(cardUploadsState.uploads.flatMap((item) => item.rows))
+    if (uploadState.sourceType !== 'jcb' && uploadState.sourceType !== 'orico') return
+    if (uploadState.uploads.length === 0) return
+    const rows = normalizeRows(uploadState.uploads.flatMap((item) => item.rows))
     const data: ParsedData = {
       rows,
       fields: Object.keys(rows[0]?.value ?? {}),
-      fileName: cardUploadsState.uploads.map((item) => item.name).join(', '),
-      sourceType,
+      fileName: uploadState.uploads.map((item) => item.name).join(', '),
+      sourceType: uploadState.sourceType,
     }
     setParsed(data)
     localStorage.setItem(CSV_STORAGE_KEY, JSON.stringify(data))
     setStep(2)
+  }
+
+  const handleSourceTypeChange = (nextSourceType: SourceType) => {
+    setUploadState((prev) =>
+      prev.sourceType === nextSourceType ? prev : { sourceType: nextSourceType, uploads: [] },
+    )
+    setError(null)
   }
 
   const handleStepClick = (next: Step) => {
@@ -359,15 +363,11 @@ export default function Home() {
         <UploadStep
           step={step}
           handleStepClick={handleStepClick}
-          sourceType={sourceType}
-          setSourceType={setSourceType}
+          sourceType={uploadState.sourceType}
+          onSourceTypeChange={handleSourceTypeChange}
           handleFiles={handleFiles}
           error={error}
-          uploadedFiles={
-            sourceType === cardUploadsState.sourceType
-              ? cardUploadsState.uploads.map((item) => item.name)
-              : []
-          }
+          uploadedFiles={uploadState.uploads.map((item) => item.name)}
           onConfirmUpload={handleConfirmCardUpload}
         />
       )}

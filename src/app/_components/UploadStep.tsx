@@ -7,7 +7,7 @@ type UploadStepProps = {
   step: Step
   handleStepClick: (next: Step) => void
   sourceType: 'amazon' | 'amazon_digital' | 'jcb' | 'orico'
-  setSourceType: (value: 'amazon' | 'amazon_digital' | 'jcb' | 'orico') => void
+  onSourceTypeChange: (value: 'amazon' | 'amazon_digital' | 'jcb' | 'orico') => void
   handleFiles: (files: FileList | null) => void
   error: string | null
   uploadedFiles: string[]
@@ -18,7 +18,7 @@ export default function UploadStep({
   step,
   handleStepClick,
   sourceType,
-  setSourceType,
+  onSourceTypeChange,
   handleFiles,
   error,
   uploadedFiles,
@@ -63,7 +63,7 @@ export default function UploadStep({
             <Tabs
               value={sourceType}
               onValueChange={(value) =>
-                setSourceType(value as 'amazon' | 'amazon_digital' | 'jcb' | 'orico')
+                onSourceTypeChange(value as 'amazon' | 'amazon_digital' | 'jcb' | 'orico')
               }
             >
               <TabsList className="mx-auto">
@@ -124,7 +124,7 @@ export default function UploadStep({
           </div>
 
           <CsvDropzone
-            multiple={sourceType === 'jcb' || sourceType === 'orico'}
+            maxFiles={sourceType === 'amazon' || sourceType === 'amazon_digital' ? 1 : undefined}
             onFiles={handleFiles}
             error={error}
           />

@@ -2,19 +2,30 @@ import { useRef, useState, type DragEventHandler } from 'react'
 import { Button } from '@/components/ui/button'
 
 type CsvDropzoneProps = {
-  multiple: boolean
+  maxFiles?: number
   onFiles: (files: FileList | null) => void
   error: string | null
 }
 
-export default function CsvDropzone({ multiple, onFiles, error }: CsvDropzoneProps) {
+function limitFiles(files: FileList, maxFiles?: number): FileList {
+  if (!maxFiles || files.length <= maxFiles) return files
+  const dataTransfer = new DataTransfer()
+  Array.from(files)
+    .slice(0, maxFiles)
+    .forEach((file) => {
+      dataTransfer.items.add(file)
+    })
+  return dataTransfer.files
+}
+
+export default function CsvDropzone({ maxFiles, onFiles, error }: CsvDropzoneProps) {
   const inputRef = useRef<HTMLInputElement | null>(null)
   const [isDragging, setIsDragging] = useState(false)
 
   const handleDrop: DragEventHandler<HTMLDivElement> = (event) => {
     event.preventDefault()
     setIsDragging(false)
-    onFiles(event.dataTransfer.files)
+    onFiles(limitFiles(event.dataTransfer.files, maxFiles))
   }
 
   const handleDragOver: DragEventHandler<HTMLDivElement> = (event) => {
@@ -43,8 +54,14 @@ export default function CsvDropzone({ multiple, onFiles, error }: CsvDropzonePro
         ref={inputRef}
         type="file"
         accept=".csv,text/csv"
-        multiple={multiple}
-        onChange={(event) => onFiles(event.target.files)}
+        multiple={!maxFiles || maxFiles > 1}
+        onChange={(event) => {
+          if (!event.target.files) {
+            onFiles(null)
+            return
+          }
+          onFiles(limitFiles(event.target.files, maxFiles))
+        }}
         className="hidden"
       />
       <Button onClick={() => inputRef.current?.click()}>CSVファイルを選択</Button>
