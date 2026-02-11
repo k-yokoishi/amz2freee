@@ -20,9 +20,6 @@ import { parseAmazonFiles } from '@/features/amazon/utils/parseAmazonFiles'
 import { parseAmazonDigitalFiles } from '@/features/amazonDigital/utils/parseAmazonDigitalFiles'
 import { parseJcbFiles } from '@/features/jcb/utils/parseJcbFiles'
 import { parseOricoFiles } from '@/features/orico/utils/parseOricoFiles'
-import { countSelectedRows } from '@/features/selection/countSelectedRows'
-import { extractYears } from '@/features/selection/extractYears'
-import { filterRows } from '@/features/selection/filterRows'
 import { buildFreeeCsv } from '@/features/freee/utils/buildFreeeCsv'
 import { buildFreeeRow } from '@/features/freee/utils/buildFreeeRow'
 import { getFreeeHeaders } from '@/features/freee/utils/getFreeeHeaders'
@@ -31,18 +28,6 @@ import { inferTaxCategory } from '@/features/freee/utils/inferTaxCategory'
 const STORAGE_KEY = 'amz2freee:selected-keys:v1'
 const CSV_STORAGE_KEY = 'amz2freee:csv:v1'
 const OVERRIDES_STORAGE_KEY = 'amz2freee:row-overrides:v1'
-const SELECTED_YEAR_STORAGE_KEY = 'amz2freee:selected-year:v1'
-
-function useDebouncedValue<T>(value: T, delayMs = 300): T {
-  const [debounced, setDebounced] = useState(value)
-
-  useEffect(() => {
-    const timer = setTimeout(() => setDebounced(value), delayMs)
-    return () => clearTimeout(timer)
-  }, [value, delayMs])
-
-  return debounced
-}
 
 function downloadCsv(filename: string, content: string) {
   const bom = '\ufeff'
@@ -65,8 +50,6 @@ export default function Home() {
   const [parsed, setParsed] = useState<ParsedData | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [selectedKeys, setSelectedKeys] = useState<Set<string>>(new Set())
-  const [selectedYear, setSelectedYear] = useState<string>('all')
-  const [searchQuery, setSearchQuery] = useState<string>('')
   const [uploadState, setUploadState] = useState<{
     sourceType: SourceType
     uploads: Array<{ name: string; rows: CsvRow[] }>
@@ -74,7 +57,6 @@ export default function Home() {
   const [step, setStep] = useState<Step>(1)
   const [rowOverrides, setRowOverrides] = useState<RowOverrides>({})
   const [isLoadingCsv, setIsLoadingCsv] = useState(true)
-  const debouncedSearchQuery = useDebouncedValue(searchQuery, 300)
 
   const taxCategory = '課対仕入10%'
   const settlementBase: 'order' | 'ship' = 'order'
@@ -91,23 +73,8 @@ export default function Home() {
   }, [])
 
   useEffect(() => {
-    const raw = localStorage.getItem(SELECTED_YEAR_STORAGE_KEY)
-    if (!raw) return
-    try {
-      const data = JSON.parse(raw) as { year?: string }
-      if (typeof data?.year === 'string') setSelectedYear(data.year)
-    } catch {
-      // ignore invalid storage
-    }
-  }, [])
-
-  useEffect(() => {
     localStorage.setItem(STORAGE_KEY, JSON.stringify({ keys: Array.from(selectedKeys) }))
   }, [selectedKeys])
-
-  useEffect(() => {
-    localStorage.setItem(SELECTED_YEAR_STORAGE_KEY, JSON.stringify({ year: selectedYear }))
-  }, [selectedYear])
 
   useEffect(() => {
     const raw = localStorage.getItem(OVERRIDES_STORAGE_KEY)
@@ -147,26 +114,6 @@ export default function Home() {
     }
   }, [])
 
-  const years = useMemo(() => {
-    if (!parsed) return [] as string[]
-    return extractYears(parsed.rows)
-  }, [parsed])
-
-  useEffect(() => {
-    if (selectedYear === 'all') return
-    if (years.length === 0) return
-    if (!years.includes(selectedYear)) setSelectedYear('all')
-  }, [years, selectedYear])
-
-  const filteredRows = useMemo(() => {
-    if (!parsed) return [] as CsvRow[]
-    return filterRows(parsed.rows, selectedYear, debouncedSearchQuery)
-  }, [parsed, selectedYear, debouncedSearchQuery])
-
-  const selectedCount = useMemo(() => {
-    return countSelectedRows(filteredRows, selectedKeys)
-  }, [filteredRows, selectedKeys])
-
   const selectedRows = useMemo(() => {
     if (!parsed) return [] as CsvRow[]
     return parsed.rows.filter((row) => selectedKeys.has(row.id))
@@ -185,31 +132,6 @@ export default function Home() {
       now.getDate(),
     ).padStart(2, '0')}`
     downloadCsv(`amazon_freee_${stamp}.csv`, csv)
-  }
-
-  const allVisibleSelected = filteredRows.length > 0 && selectedCount === filteredRows.length
-  const someVisibleSelected = selectedCount > 0 && selectedCount < filteredRows.length
-
-  const handleToggleAll = () => {
-    setSelectedKeys((prev) => {
-      const next = new Set(prev)
-      if (allVisibleSelected) {
-        for (const row of filteredRows) next.delete(row.id)
-        return next
-      }
-      for (const row of filteredRows) next.add(row.id)
-      return next
-    })
-  }
-
-  const handleRowToggle = (row: CsvRow) => {
-    const key = row.id
-    setSelectedKeys((prev) => {
-      const next = new Set(prev)
-      if (next.has(key)) next.delete(key)
-      else next.add(key)
-      return next
-    })
   }
 
   const handleFiles = async (files: FileList | null) => {
@@ -329,7 +251,7 @@ export default function Home() {
       return
     }
     if (!parsed) return
-    if (next === 3 && selectedCount === 0) return
+    if (next === 3 && selectedRows.length === 0) return
     setStep(next)
   }
 
@@ -378,18 +300,9 @@ export default function Home() {
             <SelectStep
               step={step}
               handleStepClick={handleStepClick}
-              filteredRows={filteredRows}
-              selectedCount={selectedCount}
-              allVisibleSelected={allVisibleSelected}
-              someVisibleSelected={someVisibleSelected}
-              years={years}
-              selectedYear={selectedYear}
-              setSelectedYear={setSelectedYear}
-              searchQuery={searchQuery}
-              setSearchQuery={setSearchQuery}
-              handleToggleAll={handleToggleAll}
-              handleRowToggle={handleRowToggle}
+              rows={parsed.rows}
               selectedKeys={selectedKeys}
+              setSelectedKeys={setSelectedKeys}
               onGoToExport={() => setStep(3)}
             />
           )}

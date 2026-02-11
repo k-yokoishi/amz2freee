@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Checkbox } from '@/components/ui/checkbox'
@@ -18,47 +18,79 @@ import {
   TableRow,
 } from '@/components/ui/table'
 import type { CsvRow, Step } from '@/features/_shared/types'
+import { countSelectedRows } from '@/features/selection/countSelectedRows'
+import { extractYears } from '@/features/selection/extractYears'
+import { filterRows } from '@/features/selection/filterRows'
 import { ArrowDownAZ, ArrowUpAZ, ArrowUpDown } from 'lucide-react'
+
+const SELECTED_YEAR_STORAGE_KEY = 'amz2freee:selected-year:v1'
+
+function useDebouncedValue<T>(value: T, delayMs = 300): T {
+  const [debounced, setDebounced] = useState(value)
+
+  useEffect(() => {
+    const timer = setTimeout(() => setDebounced(value), delayMs)
+    return () => clearTimeout(timer)
+  }, [value, delayMs])
+
+  return debounced
+}
 
 type SelectStepProps = {
   step: Step
   handleStepClick: (next: Step) => void
-  filteredRows: CsvRow[]
-  selectedCount: number
-  allVisibleSelected: boolean
-  someVisibleSelected: boolean
-  years: string[]
-  selectedYear: string
-  setSelectedYear: (value: string) => void
-  searchQuery: string
-  setSearchQuery: (value: string) => void
-  handleToggleAll: () => void
-  handleRowToggle: (row: CsvRow) => void
+  rows: CsvRow[]
   selectedKeys: Set<string>
+  setSelectedKeys: (next: Set<string>) => void
   onGoToExport: () => void
 }
 
 export default function SelectStep({
   step,
   handleStepClick,
-  filteredRows,
-  selectedCount,
-  allVisibleSelected,
-  someVisibleSelected,
-  years,
-  selectedYear,
-  setSelectedYear,
-  searchQuery,
-  setSearchQuery,
-  handleToggleAll,
-  handleRowToggle,
+  rows,
   selectedKeys,
+  setSelectedKeys,
   onGoToExport,
 }: SelectStepProps) {
+  const [selectedYear, setSelectedYear] = useState<string>(() => {
+    if (typeof window === 'undefined') return 'all'
+    try {
+      const raw = localStorage.getItem(SELECTED_YEAR_STORAGE_KEY)
+      if (!raw) return 'all'
+      const data = JSON.parse(raw) as { year?: string }
+      return typeof data?.year === 'string' ? data.year : 'all'
+    } catch {
+      return 'all'
+    }
+  })
+  const [searchQuery, setSearchQuery] = useState<string>('')
   const [sort, setSort] = useState<{ key: string; direction: 'asc' | 'desc' }>({
     key: 'Order Date',
     direction: 'desc',
   })
+  const debouncedSearchQuery = useDebouncedValue(searchQuery, 300)
+
+  const years = useMemo(() => extractYears(rows), [rows])
+  const activeSelectedYear =
+    selectedYear === 'all' || years.includes(selectedYear) ? selectedYear : 'all'
+
+  useEffect(() => {
+    localStorage.setItem(SELECTED_YEAR_STORAGE_KEY, JSON.stringify({ year: activeSelectedYear }))
+  }, [activeSelectedYear])
+
+  const filteredRows = useMemo(
+    () => filterRows(rows, activeSelectedYear, debouncedSearchQuery),
+    [rows, activeSelectedYear, debouncedSearchQuery],
+  )
+
+  const selectedCount = useMemo(
+    () => countSelectedRows(filteredRows, selectedKeys),
+    [filteredRows, selectedKeys],
+  )
+
+  const allVisibleSelected = filteredRows.length > 0 && selectedCount === filteredRows.length
+  const someVisibleSelected = selectedCount > 0 && selectedCount < filteredRows.length
 
   const columns: Array<{
     label: string
@@ -123,6 +155,23 @@ export default function SelectStep({
     )
   }
 
+  const handleToggleAll = () => {
+    const next = new Set(selectedKeys)
+    if (allVisibleSelected) {
+      for (const row of filteredRows) next.delete(row.id)
+    } else {
+      for (const row of filteredRows) next.add(row.id)
+    }
+    setSelectedKeys(next)
+  }
+
+  const handleRowToggle = (row: CsvRow) => {
+    const next = new Set(selectedKeys)
+    if (next.has(row.id)) next.delete(row.id)
+    else next.add(row.id)
+    setSelectedKeys(next)
+  }
+
   return (
     <div className="flex min-h-screen flex-col">
       <header className="flex h-16 items-center justify-center px-6">
@@ -172,7 +221,7 @@ export default function SelectStep({
                   />
                 </div>
                 <div className="flex items-center gap-2">
-                  <Select value={selectedYear} onValueChange={setSelectedYear}>
+                  <Select value={activeSelectedYear} onValueChange={setSelectedYear}>
                     <SelectTrigger className="h-8 w-[120px]">
                       <SelectValue placeholder="All" />
                     </SelectTrigger>
