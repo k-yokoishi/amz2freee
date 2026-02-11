@@ -1,18 +1,13 @@
-import type { DragEventHandler, RefObject } from 'react'
 import { Button } from '@/components/ui/button'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import type { Step } from '@/features/_shared/types'
+import CsvDropzone from '@/app/_components/CsvDropzone'
 
 type UploadStepProps = {
   step: Step
   handleStepClick: (next: Step) => void
   sourceType: 'amazon' | 'amazon_digital' | 'jcb' | 'orico'
   setSourceType: (value: 'amazon' | 'amazon_digital' | 'jcb' | 'orico') => void
-  isDragging: boolean
-  handleDrop: DragEventHandler<HTMLDivElement>
-  handleDragOver: DragEventHandler<HTMLDivElement>
-  handleDragLeave: DragEventHandler<HTMLDivElement>
-  inputRef: RefObject<HTMLInputElement | null>
   handleFiles: (files: FileList | null) => void
   error: string | null
   uploadedFiles: string[]
@@ -24,11 +19,6 @@ export default function UploadStep({
   handleStepClick,
   sourceType,
   setSourceType,
-  isDragging,
-  handleDrop,
-  handleDragOver,
-  handleDragLeave,
-  inputRef,
   handleFiles,
   error,
   uploadedFiles,
@@ -133,33 +123,11 @@ export default function UploadStep({
             </Tabs>
           </div>
 
-          <div
-            className={`mt-6 flex flex-col items-center justify-center gap-4 rounded-2xl border border-dashed px-6 py-10 text-center transition ${
-              isDragging ? 'border-primary bg-primary/10' : 'border-border bg-muted/30'
-            }`}
-            onDrop={handleDrop}
-            onDragOver={handleDragOver}
-            onDragLeave={handleDragLeave}
-          >
-            <div className="flex flex-col items-center gap-2">
-              <p className="text-base font-medium">CSVをドラッグ＆ドロップ</p>
-              <p className="text-sm text-muted-foreground">またはボタンから選択してください</p>
-            </div>
-            <input
-              ref={inputRef}
-              type="file"
-              accept=".csv,text/csv"
-              multiple={sourceType === 'jcb' || sourceType === 'orico'}
-              onChange={(event) => handleFiles(event.target.files)}
-              className="hidden"
-            />
-            <Button onClick={() => inputRef.current?.click()}>
-              {sourceType === 'amazon' || sourceType === 'amazon_digital'
-                ? 'CSVを選択'
-                : 'CSVを追加'}
-            </Button>
-            {error && <p className="text-sm text-destructive">{error}</p>}
-          </div>
+          <CsvDropzone
+            multiple={sourceType === 'jcb' || sourceType === 'orico'}
+            onFiles={handleFiles}
+            error={error}
+          />
 
           {sourceType === 'jcb' && (
             <div className="mt-6 flex flex-col items-center gap-3 text-center">

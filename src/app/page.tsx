@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 
 import UploadStep from '@/app/_components/UploadStep'
 import SelectStep from '@/app/_components/SelectStep'
@@ -62,8 +62,6 @@ function assertNever(value: never): never {
 }
 
 export default function Home() {
-  const inputRef = useRef<HTMLInputElement | null>(null)
-  const [isDragging, setIsDragging] = useState(false)
   const [parsed, setParsed] = useState<ParsedData | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [selectedKeys, setSelectedKeys] = useState<Set<string>>(new Set())
@@ -293,21 +291,6 @@ export default function Home() {
     }
   }
 
-  const handleDrop: React.DragEventHandler<HTMLDivElement> = (event) => {
-    event.preventDefault()
-    setIsDragging(false)
-    handleFiles(event.dataTransfer.files)
-  }
-
-  const handleDragOver: React.DragEventHandler<HTMLDivElement> = (event) => {
-    event.preventDefault()
-    setIsDragging(true)
-  }
-
-  const handleDragLeave: React.DragEventHandler<HTMLDivElement> = () => {
-    setIsDragging(false)
-  }
-
   const handleClearUpload = () => {
     setParsed(null)
     setSelectedKeys(new Set())
@@ -378,11 +361,6 @@ export default function Home() {
           handleStepClick={handleStepClick}
           sourceType={sourceType}
           setSourceType={setSourceType}
-          isDragging={isDragging}
-          handleDrop={handleDrop}
-          handleDragOver={handleDragOver}
-          handleDragLeave={handleDragLeave}
-          inputRef={inputRef}
           handleFiles={handleFiles}
           error={error}
           uploadedFiles={
