@@ -1,0 +1,9 @@
+pre-push:
+  parallel: true
+  commands:
+    lint:
+      run: yarn lint
+    typecheck:
+      run: yarn typecheck
+    test:
+      run: yarn test:browser
