@@ -24,8 +24,8 @@ import { buildFreeeCsv } from '@/features/freee/utils/buildFreeeCsv'
 import { buildFreeeRow } from '@/features/freee/utils/buildFreeeRow'
 import { getFreeeHeaders } from '@/features/freee/utils/getFreeeHeaders'
 import { inferTaxCategory } from '@/features/freee/utils/inferTaxCategory'
+import { usePersistentState } from '@/features/_shared/utils/hooks/usePersistentState'
 
-const STORAGE_KEY = 'amz2freee:selected-keys:v1'
 const CSV_STORAGE_KEY = 'amz2freee:csv:v1'
 const OVERRIDES_STORAGE_KEY = 'amz2freee:row-overrides:v1'
 
@@ -55,41 +55,14 @@ export default function Home() {
     uploads: Array<{ name: string; rows: CsvRow[] }>
   }>({ sourceType: 'amazon', uploads: [] })
   const [step, setStep] = useState<Step>(1)
-  const [rowOverrides, setRowOverrides] = useState<RowOverrides>({})
+  const [rowOverrides, setRowOverrides] = usePersistentState<RowOverrides>(
+    OVERRIDES_STORAGE_KEY,
+    {},
+  )
   const [isLoadingCsv, setIsLoadingCsv] = useState(true)
 
   const taxCategory = '課対仕入10%'
   const settlementBase: 'order' | 'ship' = 'order'
-
-  useEffect(() => {
-    const raw = localStorage.getItem(STORAGE_KEY)
-    if (!raw) return
-    try {
-      const data = JSON.parse(raw) as { keys: string[] }
-      setSelectedKeys(new Set(data.keys))
-    } catch {
-      // ignore invalid storage
-    }
-  }, [])
-
-  useEffect(() => {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify({ keys: Array.from(selectedKeys) }))
-  }, [selectedKeys])
-
-  useEffect(() => {
-    const raw = localStorage.getItem(OVERRIDES_STORAGE_KEY)
-    if (!raw) return
-    try {
-      const data = JSON.parse(raw) as RowOverrides
-      setRowOverrides(data ?? {})
-    } catch {
-      // ignore invalid storage
-    }
-  }, [])
-
-  useEffect(() => {
-    localStorage.setItem(OVERRIDES_STORAGE_KEY, JSON.stringify(rowOverrides))
-  }, [rowOverrides])
 
   useEffect(() => {
     const raw = localStorage.getItem(CSV_STORAGE_KEY)
@@ -219,7 +192,6 @@ export default function Home() {
     setRowOverrides({})
     setUploadState({ sourceType: 'amazon', uploads: [] })
     localStorage.removeItem(CSV_STORAGE_KEY)
-    localStorage.removeItem(STORAGE_KEY)
     localStorage.removeItem(OVERRIDES_STORAGE_KEY)
   }
 

@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useMemo, useState } from 'react'
 import AccountSearchDialog from '@/app/_components/AccountSearchDialog'
 import { Button } from '@/components/ui/button'
 import { Checkbox } from '@/components/ui/checkbox'
@@ -22,6 +22,7 @@ import {
 } from '@/components/ui/table'
 import type { CsvRow, RowOverrides, Step } from '@/features/_shared/types'
 import { freeeAccountItems } from '@/data/freeeAccountItems'
+import { usePersistentState } from '@/features/_shared/utils/hooks/usePersistentState'
 import { ArrowDownAZ, ArrowUpAZ, ArrowUpDown, SearchIcon } from 'lucide-react'
 
 const RECENT_ACCOUNTS_KEY = 'amz2freee:recent-accounts:v1'
@@ -92,20 +93,13 @@ export default function ExportStep({
       flatSmallItems.push({ small: item.small?.trim() || 'その他', account: item.account })
     }
   }
-  const [recentAccounts, setRecentAccounts] = useState<string[]>(() => {
-    if (typeof window === 'undefined') return []
-    try {
-      const raw = localStorage.getItem(RECENT_ACCOUNTS_KEY)
-      if (!raw) return []
-      const parsed = JSON.parse(raw)
-      if (Array.isArray(parsed)) {
-        return parsed.filter((value) => typeof value === 'string').slice(0, 5)
-      }
-    } catch {
-      // ignore invalid storage
-    }
-    return []
-  })
+  const [recentAccountsState, setRecentAccounts] = usePersistentState<string[]>(
+    RECENT_ACCOUNTS_KEY,
+    [],
+  )
+  const recentAccounts = Array.isArray(recentAccountsState)
+    ? recentAccountsState.filter((value): value is string => typeof value === 'string').slice(0, 5)
+    : []
   const [dialogOpen, setDialogOpen] = useState(false)
   const [dialogTargets, setDialogTargets] = useState<CsvRow[]>([])
   const [checkedRowIds, setCheckedRowIds] = useState<Set<string>>(() => new Set())
@@ -113,10 +107,6 @@ export default function ExportStep({
     index: 0,
     direction: 'desc',
   })
-
-  useEffect(() => {
-    localStorage.setItem(RECENT_ACCOUNTS_KEY, JSON.stringify(recentAccounts))
-  }, [recentAccounts])
 
   const pushRecentAccount = (value: string) => {
     const trimmed = value.trim()

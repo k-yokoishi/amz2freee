@@ -21,6 +21,7 @@ import type { CsvRow, Step } from '@/features/_shared/types'
 import { countSelectedRows } from '@/features/selection/countSelectedRows'
 import { extractYears } from '@/features/selection/extractYears'
 import { filterRows } from '@/features/selection/filterRows'
+import { usePersistentState } from '@/features/_shared/utils/hooks/usePersistentState'
 import { ArrowDownAZ, ArrowUpAZ, ArrowUpDown } from 'lucide-react'
 
 const SELECTED_YEAR_STORAGE_KEY = 'amz2freee:selected-year:v1'
@@ -53,17 +54,10 @@ export default function SelectStep({
   setSelectedKeys,
   onGoToExport,
 }: SelectStepProps) {
-  const [selectedYear, setSelectedYear] = useState<string>(() => {
-    if (typeof window === 'undefined') return 'all'
-    try {
-      const raw = localStorage.getItem(SELECTED_YEAR_STORAGE_KEY)
-      if (!raw) return 'all'
-      const data = JSON.parse(raw) as { year?: string }
-      return typeof data?.year === 'string' ? data.year : 'all'
-    } catch {
-      return 'all'
-    }
-  })
+  const [selectedYear, setSelectedYear] = usePersistentState<string>(
+    SELECTED_YEAR_STORAGE_KEY,
+    'all',
+  )
   const [searchQuery, setSearchQuery] = useState<string>('')
   const [sort, setSort] = useState<{ key: string; direction: 'asc' | 'desc' }>({
     key: 'Order Date',
@@ -74,10 +68,6 @@ export default function SelectStep({
   const years = useMemo(() => extractYears(rows), [rows])
   const activeSelectedYear =
     selectedYear === 'all' || years.includes(selectedYear) ? selectedYear : 'all'
-
-  useEffect(() => {
-    localStorage.setItem(SELECTED_YEAR_STORAGE_KEY, JSON.stringify({ year: activeSelectedYear }))
-  }, [activeSelectedYear])
 
   const filteredRows = useMemo(
     () => filterRows(rows, activeSelectedYear, debouncedSearchQuery),
