@@ -73,8 +73,10 @@ export default function Home() {
   const [step, setStep] = useState<Step>(1)
   const [rowOverrides, setRowOverrides] = useState<RowOverrides>({})
   const [isLoadingCsv, setIsLoadingCsv] = useState(true)
-  const [jcbUploads, setJcbUploads] = useState<Array<{ name: string; rows: CsvRow[] }>>([])
-  const [oricoUploads, setOricoUploads] = useState<Array<{ name: string; rows: CsvRow[] }>>([])
+  const [cardUploadsState, setCardUploadsState] = useState<{
+    sourceType: 'jcb' | 'orico' | null
+    uploads: Array<{ name: string; rows: CsvRow[] }>
+  }>({ sourceType: null, uploads: [] })
   const debouncedSearchQuery = useDebouncedValue(searchQuery, 300)
 
   const taxCategory = '課対仕入10%'
@@ -261,15 +263,29 @@ export default function Home() {
         return
       }
       case 'jcb': {
-        setJcbUploads((prev) =>
-          [...prev, ...uploads].map((upload) => ({ name: upload.name, rows: upload.rows })),
-        )
+        setCardUploadsState((prev) => ({
+          sourceType: 'jcb',
+          uploads:
+            prev.sourceType === 'jcb'
+              ? [...prev.uploads, ...uploads].map((upload) => ({
+                  name: upload.name,
+                  rows: upload.rows,
+                }))
+              : uploads.map((upload) => ({ name: upload.name, rows: upload.rows })),
+        }))
         return
       }
       case 'orico': {
-        setOricoUploads((prev) =>
-          [...prev, ...uploads].map((upload) => ({ name: upload.name, rows: upload.rows })),
-        )
+        setCardUploadsState((prev) => ({
+          sourceType: 'orico',
+          uploads:
+            prev.sourceType === 'orico'
+              ? [...prev.uploads, ...uploads].map((upload) => ({
+                  name: upload.name,
+                  rows: upload.rows,
+                }))
+              : uploads.map((upload) => ({ name: upload.name, rows: upload.rows })),
+        }))
         return
       }
       default:
@@ -297,36 +313,23 @@ export default function Home() {
     setSelectedKeys(new Set())
     setStep(1)
     setRowOverrides({})
-    setJcbUploads([])
-    setOricoUploads([])
+    setCardUploadsState({ sourceType: null, uploads: [] })
     setSourceType('amazon')
     localStorage.removeItem(CSV_STORAGE_KEY)
     localStorage.removeItem(STORAGE_KEY)
     localStorage.removeItem(OVERRIDES_STORAGE_KEY)
   }
 
-  const handleConfirmJcb = () => {
-    if (jcbUploads.length === 0) return
-    const rows = normalizeRows(jcbUploads.flatMap((item) => item.rows))
+  const handleConfirmCardUpload = () => {
+    if (sourceType !== 'jcb' && sourceType !== 'orico') return
+    if (cardUploadsState.sourceType !== sourceType) return
+    if (cardUploadsState.uploads.length === 0) return
+    const rows = normalizeRows(cardUploadsState.uploads.flatMap((item) => item.rows))
     const data: ParsedData = {
       rows,
       fields: Object.keys(rows[0]?.value ?? {}),
-      fileName: jcbUploads.map((item) => item.name).join(', '),
-      sourceType: 'jcb',
-    }
-    setParsed(data)
-    localStorage.setItem(CSV_STORAGE_KEY, JSON.stringify(data))
-    setStep(2)
-  }
-
-  const handleConfirmOrico = () => {
-    if (oricoUploads.length === 0) return
-    const rows = normalizeRows(oricoUploads.flatMap((item) => item.rows))
-    const data: ParsedData = {
-      rows,
-      fields: Object.keys(rows[0]?.value ?? {}),
-      fileName: oricoUploads.map((item) => item.name).join(', '),
-      sourceType: 'orico',
+      fileName: cardUploadsState.uploads.map((item) => item.name).join(', '),
+      sourceType,
     }
     setParsed(data)
     localStorage.setItem(CSV_STORAGE_KEY, JSON.stringify(data))
@@ -382,10 +385,12 @@ export default function Home() {
           inputRef={inputRef}
           handleFiles={handleFiles}
           error={error}
-          jcbFiles={jcbUploads.map((item) => item.name)}
-          oricoFiles={oricoUploads.map((item) => item.name)}
-          onConfirmJcb={handleConfirmJcb}
-          onConfirmOrico={handleConfirmOrico}
+          uploadedFiles={
+            sourceType === cardUploadsState.sourceType
+              ? cardUploadsState.uploads.map((item) => item.name)
+              : []
+          }
+          onConfirmUpload={handleConfirmCardUpload}
         />
       )}
 

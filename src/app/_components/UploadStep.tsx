@@ -15,10 +15,8 @@ type UploadStepProps = {
   inputRef: RefObject<HTMLInputElement | null>
   handleFiles: (files: FileList | null) => void
   error: string | null
-  jcbFiles: string[]
-  oricoFiles: string[]
-  onConfirmJcb: () => void
-  onConfirmOrico: () => void
+  uploadedFiles: string[]
+  onConfirmUpload: () => void
 }
 
 export default function UploadStep({
@@ -33,10 +31,8 @@ export default function UploadStep({
   inputRef,
   handleFiles,
   error,
-  jcbFiles,
-  oricoFiles,
-  onConfirmJcb,
-  onConfirmOrico,
+  uploadedFiles,
+  onConfirmUpload,
 }: UploadStepProps) {
   return (
     <div className="flex min-h-screen flex-col">
@@ -168,11 +164,11 @@ export default function UploadStep({
           {sourceType === 'jcb' && (
             <div className="mt-6 flex flex-col items-center gap-3 text-center">
               <div className="text-sm font-medium">アップロード済み</div>
-              {jcbFiles.length === 0 ? (
+              {uploadedFiles.length === 0 ? (
                 <p className="text-sm text-muted-foreground">まだファイルがありません。</p>
               ) : (
                 <ul className="text-sm text-muted-foreground">
-                  {jcbFiles.map((name) => (
+                  {uploadedFiles.map((name) => (
                     <li key={name} className="truncate">
                       {name}
                     </li>
@@ -180,7 +176,7 @@ export default function UploadStep({
                 </ul>
               )}
               <div>
-                <Button onClick={onConfirmJcb} disabled={jcbFiles.length === 0}>
+                <Button onClick={onConfirmUpload} disabled={uploadedFiles.length === 0}>
                   確定して次へ
                 </Button>
               </div>
@@ -190,11 +186,11 @@ export default function UploadStep({
           {sourceType === 'orico' && (
             <div className="mt-6 flex flex-col items-center gap-3 text-center">
               <div className="text-sm font-medium">アップロード済み</div>
-              {oricoFiles.length === 0 ? (
+              {uploadedFiles.length === 0 ? (
                 <p className="text-sm text-muted-foreground">まだファイルがありません。</p>
               ) : (
                 <ul className="text-sm text-muted-foreground">
-                  {oricoFiles.map((name) => (
+                  {uploadedFiles.map((name) => (
                     <li key={name} className="truncate">
                       {name}
                     </li>
@@ -202,7 +198,7 @@ export default function UploadStep({
                 </ul>
               )}
               <div>
-                <Button onClick={onConfirmOrico} disabled={oricoFiles.length === 0}>
+                <Button onClick={onConfirmUpload} disabled={uploadedFiles.length === 0}>
                   確定して次へ
                 </Button>
               </div>
