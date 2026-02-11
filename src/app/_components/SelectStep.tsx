@@ -17,7 +17,7 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table'
-import type { CsvRow, Step } from '@/app/types'
+import type { CsvRow, Step } from '@/features/_shared/types'
 import { ArrowDownAZ, ArrowUpAZ, ArrowUpDown } from 'lucide-react'
 
 type SelectStepProps = {

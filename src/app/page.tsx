@@ -1,90 +1,37 @@
 'use client'
 
 import { useEffect, useMemo, useRef, useState } from 'react'
-import Papa from 'papaparse'
 
 import UploadStep from '@/app/_components/UploadStep'
 import SelectStep from '@/app/_components/SelectStep'
 import ExportStep from '@/app/_components/ExportStep'
-import type { CsvRow, ParsedData, RowOverrides, SourceType, Step } from '@/app/types'
+import type {
+  CsvRow,
+  ParsedData,
+  ParsedUpload,
+  RowOverrides,
+  SourceFilesParser,
+  SourceType,
+  Step,
+} from '@/features/_shared/types'
+import { normalizeRows } from '@/features/_shared/utils/normalizeRows'
 import { Spinner } from '@/components/ui/spinner'
+import { parseAmazonFiles } from '@/features/amazon/utils/parseAmazonFiles'
+import { parseAmazonDigitalFiles } from '@/features/amazonDigital/utils/parseAmazonDigitalFiles'
+import { parseJcbFiles } from '@/features/jcb/utils/parseJcbFiles'
+import { parseOricoFiles } from '@/features/orico/utils/parseOricoFiles'
+import { countSelectedRows } from '@/features/selection/countSelectedRows'
+import { extractYears } from '@/features/selection/extractYears'
+import { filterRows } from '@/features/selection/filterRows'
+import { buildFreeeCsv } from '@/features/freee/utils/buildFreeeCsv'
+import { buildFreeeRow } from '@/features/freee/utils/buildFreeeRow'
+import { getFreeeHeaders } from '@/features/freee/utils/getFreeeHeaders'
+import { inferTaxCategory } from '@/features/freee/utils/inferTaxCategory'
 
 const STORAGE_KEY = 'amz2freee:selected-keys:v1'
 const CSV_STORAGE_KEY = 'amz2freee:csv:v1'
 const OVERRIDES_STORAGE_KEY = 'amz2freee:row-overrides:v1'
 const SELECTED_YEAR_STORAGE_KEY = 'amz2freee:selected-year:v1'
-
-const REQUIRED_COLUMNS = ['Order ID', 'Order Date', 'Product Name', 'Total Owed']
-const DIGITAL_REQUIRED_COLUMNS = ['OrderId', 'OrderDate', 'ProductName', 'OurPrice']
-
-function normalizeHeader(value: string): string {
-  return value
-    .replace(/^\ufeff/, '')
-    .replace(/^"|"$/g, '')
-    .trim()
-}
-
-function normalizeJcbDate(value: string | undefined): string {
-  if (!value) return ''
-  return value.trim()
-}
-
-function normalizeOricoDate(value: string | undefined): string {
-  if (!value) return ''
-  const trimmed = value.trim()
-  const match = trimmed.match(/^(\d{4})年(\d{1,2})月(\d{1,2})日$/)
-  if (!match) return trimmed
-  const [, yyyy, mm, dd] = match
-  return `${yyyy}/${mm.padStart(2, '0')}/${dd.padStart(2, '0')}`
-}
-
-function normalizeYenAmount(value: string | undefined): string {
-  if (!value) return ''
-  return value.replace(/[\\\\,]/g, '').trim()
-}
-
-function normalizeSearchText(value: string): string {
-  return value.normalize('NFKC').toLowerCase()
-}
-
-function parseAmazonDigitalRows(rows: Record<string, string>[]): CsvRow[] {
-  return rows.map((row) => {
-    const total = row['OurPriceTax'] || row['OurPrice'] || ''
-    const base = row['OurPrice'] || ''
-    const totalNum = parseNumber(total)
-    const baseNum = parseNumber(base)
-    const taxNum =
-      totalNum !== null && baseNum !== null ? Math.max(totalNum - baseNum, 0) : null
-    const taxAmount = taxNum !== null ? String(taxNum) : ''
-    const normalizedTotal =
-      totalNum !== null ? String(Math.floor(totalNum)) : total
-    const normalizedBase =
-      baseNum !== null ? String(Math.floor(baseNum)) : base
-    const normalizedTaxAmount =
-      taxNum !== null ? String(Math.floor(taxNum)) : taxAmount
-    return {
-      id: crypto.randomUUID(),
-      value: {
-        Website: row['Marketplace'] || 'Amazon',
-        'Order ID': row['OrderId'] || '',
-        'Order Date': row['OrderDate'] || '',
-        'Ship Date': row['FulfilledDate'] || row['OrderDate'] || '',
-        'Product Name': row['ProductName'] || '',
-        Quantity: row['QuantityOrdered'] || row['OriginalQuantity'] || '1',
-        Currency: row['OurPriceCurrencyCode'] || row['BaseCurrencyCode'] || 'JPY',
-        'Total Owed': normalizedTotal,
-        'Unit Price': normalizedBase,
-        'Shipment Item Subtotal': normalizedBase,
-        'Shipment Item Subtotal Tax': normalizedTaxAmount,
-        'Unit Price Tax': normalizedTaxAmount,
-        'Payment Instrument Type': 'Amazon Digital',
-        'Order Status': row['IsFulfilled'] || '',
-        'Shipment Status': row['ItemFulfilled'] || '',
-        ASIN: row['ASIN'] || '',
-      },
-    }
-  })
-}
 
 function useDebouncedValue<T>(value: T, delayMs = 300): T {
   const [debounced, setDebounced] = useState(value)
@@ -95,258 +42,6 @@ function useDebouncedValue<T>(value: T, delayMs = 300): T {
   }, [value, delayMs])
 
   return debounced
-}
-function safeDate(value: string): Date | null {
-  if (!value) return null
-  const d = new Date(value)
-  if (Number.isNaN(d.getTime())) return null
-  return d
-}
-
-function formatJstDate(value: string | undefined): string {
-  if (!value) return ''
-  const date = safeDate(value)
-  if (!date) return ''
-  const jst = new Date(date.getTime() + 9 * 60 * 60 * 1000)
-  const yyyy = jst.getUTCFullYear()
-  const mm = String(jst.getUTCMonth() + 1).padStart(2, '0')
-  const dd = String(jst.getUTCDate()).padStart(2, '0')
-  return `${yyyy}/${mm}/${dd}`
-}
-
-
-const FREEE_HEADERS = [
-  '収支区分',
-  '管理番号',
-  '発生日',
-  '決済期日',
-  '取引先コード',
-  '取引先',
-  '勘定科目',
-  '税区分',
-  '金額',
-  '税計算区分',
-  '税額',
-  '備考',
-  '品目',
-  '部門',
-  'メモタグ（複数指定可、カンマ区切り）',
-  'セグメント1',
-  'セグメント2',
-  'セグメント3',
-  '決済日',
-  '決済口座',
-  '決済金額',
-]
-
-function escapeCsvCell(value: string): string {
-  if (value.includes('"') || value.includes(',') || value.includes('\n')) {
-    return `"${value.replace(/"/g, '""')}"`
-  }
-  return value
-}
-
-function buildFreeeCsv(
-  rows: CsvRow[],
-  options: {
-    taxCategory: string
-    settlementBase: 'order' | 'ship'
-    overrides: RowOverrides
-    sourceType: SourceType
-  },
-): string {
-  const lines: string[][] = [FREEE_HEADERS]
-  for (const row of rows) {
-    lines.push(buildFreeeRow(row, options))
-  }
-  return lines.map((line) => line.map((cell) => escapeCsvCell(String(cell))).join(',')).join('\n')
-}
-
-function normalizeRows(rows: Array<CsvRow | Record<string, string>>): CsvRow[] {
-  return rows.map((row) => {
-    if ((row as CsvRow).id && (row as CsvRow).value) return row as CsvRow
-    return { id: crypto.randomUUID(), value: row as Record<string, string> }
-  })
-}
-
-function parseJcbRows(rows: string[][]): CsvRow[] {
-  const headerIndex = rows.findIndex(
-    (row) => row.includes('ご利用日') && row.includes('ご利用先など'),
-  )
-  if (headerIndex === -1) return []
-  const headers = rows[headerIndex]
-  const dataRows = rows.slice(headerIndex + 1)
-  const result: CsvRow[] = []
-  for (const row of dataRows) {
-    if (!row || row.length === 0) continue
-    if (row[0] && row[0].startsWith('【')) continue
-    const map: Record<string, string> = {}
-    headers.forEach((header, index) => {
-      map[header] = row[index] ?? ''
-    })
-    const usageDate = normalizeJcbDate(map['ご利用日'])
-    const merchant = (map['ご利用先など'] ?? '').trim()
-    const amount = (map['お支払い金額(￥)'] ?? map['ご利用金額(￥)'] ?? '').trim()
-    if (!usageDate && !merchant && !amount) continue
-    result.push({
-      id: crypto.randomUUID(),
-      value: {
-        Website: 'MyJCB',
-        'Order ID': '',
-        'Order Date': usageDate,
-        'Ship Date': usageDate,
-        'Product Name': merchant,
-        Quantity: '1',
-        Currency: 'JPY',
-        'Total Owed': amount,
-        'Unit Price': amount,
-        'Shipment Item Subtotal': amount,
-        'Shipment Item Subtotal Tax': '',
-        'Unit Price Tax': '',
-        'Payment Instrument Type': 'JCB',
-        'Order Status': '',
-        'Shipment Status': '',
-      },
-    })
-  }
-  return result
-}
-
-function parseOricoRows(rows: string[][]): CsvRow[] {
-  const headerIndex = rows.findIndex(
-    (row) => row.includes('ご利用日') && row.includes('ご利用先など'),
-  )
-  if (headerIndex === -1) return []
-  const headers = rows[headerIndex]
-  const dataRows = rows.slice(headerIndex + 1)
-  const result: CsvRow[] = []
-  for (const row of dataRows) {
-    if (!row || row.length === 0) continue
-    if (row[0] && row[0].startsWith('<')) continue
-    const map: Record<string, string> = {}
-    headers.forEach((header, index) => {
-      map[header] = row[index] ?? ''
-    })
-    const usageDate = normalizeOricoDate(map['ご利用日'])
-    const merchant = (map['ご利用先など'] ?? '').trim()
-    const amount =
-      normalizeYenAmount(map['当月ご請求額']) || normalizeYenAmount(map['ご利用金額']) || ''
-    if (!usageDate && !merchant && !amount) continue
-    result.push({
-      id: crypto.randomUUID(),
-      value: {
-        Website: 'Orico',
-        'Order ID': '',
-        'Order Date': usageDate,
-        'Ship Date': usageDate,
-        'Product Name': merchant,
-        Quantity: '1',
-        Currency: 'JPY',
-        'Total Owed': amount,
-        'Unit Price': amount,
-        'Shipment Item Subtotal': amount,
-        'Shipment Item Subtotal Tax': '',
-        'Unit Price Tax': '',
-        'Payment Instrument Type': 'Orico',
-        'Order Status': '',
-        'Shipment Status': '',
-      },
-    })
-  }
-  return result
-}
-
-function parseNumber(value: string | undefined): number | null {
-  if (!value) return null
-  const normalized = value.replace(/,/g, '')
-  const num = Number(normalized)
-  return Number.isNaN(num) ? null : num
-}
-
-function normalizeIntegerAmount(value: string | undefined): string {
-  if (!value) return ''
-  const num = parseNumber(value)
-  if (num === null) return value
-  return String(Math.floor(num))
-}
-
-function calcTaxAmount(row: CsvRow): string {
-  const direct = row.value['Shipment Item Subtotal Tax'] ?? ''
-  if (direct) return direct
-  const unitTax = parseNumber(row.value['Unit Price Tax'])
-  const quantity = parseNumber(row.value['Quantity'])
-  if (unitTax === null || quantity === null) return ''
-  const total = unitTax * quantity
-  return Number.isInteger(total) ? String(total) : total.toFixed(2)
-}
-
-function inferTaxCategory(row: CsvRow): string {
-  const quantity = parseNumber(row.value['Quantity']) ?? 1
-  const subtotal = parseNumber(row.value['Shipment Item Subtotal'])
-  const unitPrice = parseNumber(row.value['Unit Price'])
-  const baseAmount =
-    subtotal ?? (unitPrice !== null && quantity !== null ? unitPrice * quantity : null)
-
-  const directTax = parseNumber(row.value['Shipment Item Subtotal Tax'])
-  const unitTax = parseNumber(row.value['Unit Price Tax'])
-  const taxAmount = directTax ?? (unitTax !== null && quantity !== null ? unitTax * quantity : null)
-
-  if (!baseAmount || !taxAmount || baseAmount <= 0 || taxAmount <= 0) return '対象外'
-
-  const rate = taxAmount / baseAmount
-  if (rate >= 0.095) return '課対仕入10%'
-  if (rate >= 0.075) return '課対仕入8%（軽）'
-  return '課対仕入'
-}
-
-function normalizeOverride(value: string | undefined): string | undefined {
-  if (!value) return undefined
-  const trimmed = value.trim()
-  return trimmed ? trimmed : undefined
-}
-
-function buildFreeeRow(
-  row: CsvRow,
-  options: {
-    taxCategory: string
-    settlementBase: 'order' | 'ship'
-    overrides: RowOverrides
-    sourceType: SourceType
-  },
-): string[] {
-  const dateValue =
-    options.settlementBase === 'ship' ? row.value['Ship Date'] : row.value['Order Date']
-  const productName = row.value['Product Name'] ?? ''
-  const noteParts = productName
-  const amount = normalizeIntegerAmount(row.value['Total Owed'])
-  const override = options.overrides[row.id] ?? {}
-  const isDigital = options.sourceType === 'amazon_digital'
-  const accountTitle = normalizeOverride(override.accountTitle) ?? (isDigital ? '新聞図書費' : '')
-  const taxCategory = '課対仕入10%'
-  const formattedDate = formatJstDate(dateValue)
-  return [
-    '支出',
-    '',
-    formattedDate,
-    '',
-    '',
-    '',
-    accountTitle,
-    taxCategory,
-    amount,
-    '内税',
-    calcTaxAmount(row),
-    noteParts,
-    '',
-    '',
-    '',
-    '',
-    '',
-    '',
-    formattedDate,
-    '現金',
-    amount,
-  ]
 }
 
 function downloadCsv(filename: string, content: string) {
@@ -362,6 +57,10 @@ function downloadCsv(filename: string, content: string) {
   URL.revokeObjectURL(url)
 }
 
+function assertNever(value: never): never {
+  throw new Error(`Unhandled sourceType: ${String(value)}`)
+}
+
 export default function Home() {
   const inputRef = useRef<HTMLInputElement | null>(null)
   const [isDragging, setIsDragging] = useState(false)
@@ -371,14 +70,15 @@ export default function Home() {
   const [selectedYear, setSelectedYear] = useState<string>('all')
   const [searchQuery, setSearchQuery] = useState<string>('')
   const [sourceType, setSourceType] = useState<SourceType>('amazon')
-  const [taxCategory] = useState('課対仕入10%')
-  const [settlementBase] = useState<'order' | 'ship'>('order')
   const [step, setStep] = useState<Step>(1)
   const [rowOverrides, setRowOverrides] = useState<RowOverrides>({})
   const [isLoadingCsv, setIsLoadingCsv] = useState(true)
   const [jcbUploads, setJcbUploads] = useState<Array<{ name: string; rows: CsvRow[] }>>([])
   const [oricoUploads, setOricoUploads] = useState<Array<{ name: string; rows: CsvRow[] }>>([])
   const debouncedSearchQuery = useDebouncedValue(searchQuery, 300)
+
+  const taxCategory = '課対仕入10%'
+  const settlementBase: 'order' | 'ship' = 'order'
 
   useEffect(() => {
     const raw = localStorage.getItem(STORAGE_KEY)
@@ -450,12 +150,7 @@ export default function Home() {
 
   const years = useMemo(() => {
     if (!parsed) return [] as string[]
-    const set = new Set<string>()
-    for (const row of parsed.rows) {
-      const date = safeDate(row.value['Order Date'])
-      if (date) set.add(String(date.getFullYear()))
-    }
-    return Array.from(set).sort((a, b) => Number(b) - Number(a))
+    return extractYears(parsed.rows)
   }, [parsed])
 
   useEffect(() => {
@@ -466,28 +161,11 @@ export default function Home() {
 
   const filteredRows = useMemo(() => {
     if (!parsed) return [] as CsvRow[]
-    let rows = parsed.rows
-    const query = normalizeSearchText(debouncedSearchQuery.trim())
-    rows = rows.filter((row) =>
-      Object.values(row.value).some((value) =>
-        normalizeSearchText(value ?? '').includes(query),
-      ),
-    )
-    if (selectedYear !== 'all') {
-      rows = rows.filter((row) => {
-        const date = safeDate(row.value['Order Date'])
-        return date ? String(date.getFullYear()) === selectedYear : false
-      })
-    }
-    return rows
+    return filterRows(parsed.rows, selectedYear, debouncedSearchQuery)
   }, [parsed, selectedYear, debouncedSearchQuery])
 
   const selectedCount = useMemo(() => {
-    let count = 0
-    for (const row of filteredRows) {
-      if (selectedKeys.has(row.id)) count += 1
-    }
-    return count
+    return countSelectedRows(filteredRows, selectedKeys)
   }, [filteredRows, selectedKeys])
 
   const selectedRows = useMemo(() => {
@@ -538,65 +216,64 @@ export default function Home() {
   const handleFiles = async (files: FileList | null) => {
     if (!files || files.length === 0) return
     setError(null)
-    if (sourceType === 'amazon' || sourceType === 'amazon_digital') {
-      const file = files[0]
-      Papa.parse<Record<string, string>>(file, {
-        header: true,
-        skipEmptyLines: true,
-        transformHeader: normalizeHeader,
-        complete: (result) => {
-          const fields = result.meta.fields ?? []
-          const required =
-            sourceType === 'amazon' ? REQUIRED_COLUMNS : DIGITAL_REQUIRED_COLUMNS
-          const missing = required.filter((col) => !fields.includes(col))
-          if (missing.length > 0) {
-            setParsed(null)
-            setError(`必要な列が見つかりません: ${missing.join(', ')}`)
-            return
-          }
-          const rows =
-            sourceType === 'amazon'
-              ? normalizeRows(result.data)
-              : parseAmazonDigitalRows(result.data)
-          const data = {
-            rows,
-            fields,
-            fileName: file.name,
-            sourceType: sourceType as SourceType,
-          }
-          setParsed(data)
-          localStorage.setItem(CSV_STORAGE_KEY, JSON.stringify(data))
-          setStep(2)
-        },
-        error: (err) => {
-          setParsed(null)
-          setError(err.message)
-        },
-      })
+
+    const parserBySourceType: Record<SourceType, SourceFilesParser> = {
+      amazon: parseAmazonFiles,
+      amazon_digital: parseAmazonDigitalFiles,
+      jcb: parseJcbFiles,
+      orico: parseOricoFiles,
+    }
+
+    let uploads: ParsedUpload[]
+    try {
+      uploads = await parserBySourceType[sourceType](files)
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'CSV読み込みに失敗しました。'
+      setError(message)
       return
     }
 
-    const nextUploads: Array<{ name: string; rows: CsvRow[] }> = []
-    for (const file of Array.from(files)) {
-      try {
-        const buffer = await file.arrayBuffer()
-        const text = new TextDecoder('shift_jis').decode(buffer)
-        const parsed = Papa.parse<string[]>(text, { skipEmptyLines: true })
-        const rows =
-          sourceType === 'jcb'
-            ? parseJcbRows(parsed.data as string[][])
-            : parseOricoRows(parsed.data as string[][])
-        nextUploads.push({ name: file.name, rows: normalizeRows(rows) })
-      } catch (err) {
-        console.error(err)
-        setError(`${sourceType === 'jcb' ? 'MyJCB' : 'Orico'}のCSV読み込みに失敗しました。`)
+    switch (sourceType) {
+      case 'amazon': {
+        const first = uploads[0]
+        const data: ParsedData = {
+          rows: first.rows,
+          fields: first.fields,
+          fileName: first.name,
+          sourceType,
+        }
+        setParsed(data)
+        localStorage.setItem(CSV_STORAGE_KEY, JSON.stringify(data))
+        setStep(2)
         return
       }
-    }
-    if (sourceType === 'jcb') {
-      setJcbUploads((prev) => [...prev, ...nextUploads])
-    } else {
-      setOricoUploads((prev) => [...prev, ...nextUploads])
+      case 'amazon_digital': {
+        const first = uploads[0]
+        const data: ParsedData = {
+          rows: first.rows,
+          fields: first.fields,
+          fileName: first.name,
+          sourceType,
+        }
+        setParsed(data)
+        localStorage.setItem(CSV_STORAGE_KEY, JSON.stringify(data))
+        setStep(2)
+        return
+      }
+      case 'jcb': {
+        setJcbUploads((prev) =>
+          [...prev, ...uploads].map((upload) => ({ name: upload.name, rows: upload.rows })),
+        )
+        return
+      }
+      case 'orico': {
+        setOricoUploads((prev) =>
+          [...prev, ...uploads].map((upload) => ({ name: upload.name, rows: upload.rows })),
+        )
+        return
+      }
+      default:
+        return assertNever(sourceType)
     }
   }
 
@@ -633,7 +310,7 @@ export default function Home() {
     const rows = normalizeRows(jcbUploads.flatMap((item) => item.rows))
     const data: ParsedData = {
       rows,
-      fields: Object.keys(rows[0] ?? {}),
+      fields: Object.keys(rows[0]?.value ?? {}),
       fileName: jcbUploads.map((item) => item.name).join(', '),
       sourceType: 'jcb',
     }
@@ -647,7 +324,7 @@ export default function Home() {
     const rows = normalizeRows(oricoUploads.flatMap((item) => item.rows))
     const data: ParsedData = {
       rows,
-      fields: Object.keys(rows[0] ?? {}),
+      fields: Object.keys(rows[0]?.value ?? {}),
       fileName: oricoUploads.map((item) => item.name).join(', '),
       sourceType: 'orico',
     }
@@ -691,6 +368,7 @@ export default function Home() {
           </div>
         </div>
       )}
+
       {!isLoadingCsv && !parsed && (
         <UploadStep
           step={step}
@@ -738,14 +416,14 @@ export default function Home() {
               handleStepClick={handleStepClick}
               taxCategory={taxCategory}
               settlementBase={settlementBase}
-              sourceType={parsed?.sourceType ?? 'amazon'}
+              sourceType={parsed.sourceType}
               selectedRows={selectedRows}
               rowOverrides={rowOverrides}
               handleOverrideChange={handleOverrideChange}
               handleExportCsv={handleExportCsv}
               buildFreeeRow={buildFreeeRow}
               inferTaxCategory={inferTaxCategory}
-              FREEE_HEADERS={FREEE_HEADERS}
+              FREEE_HEADERS={getFreeeHeaders()}
             />
           )}
         </>

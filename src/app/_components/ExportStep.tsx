@@ -20,7 +20,7 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table'
-import type { CsvRow, RowOverrides, Step } from '@/app/types'
+import type { CsvRow, RowOverrides, Step } from '@/features/_shared/types'
 import { freeeAccountItems } from '@/data/freeeAccountItems'
 import { ArrowDownAZ, ArrowUpAZ, ArrowUpDown, SearchIcon } from 'lucide-react'
 

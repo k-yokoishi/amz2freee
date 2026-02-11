@@ -1,7 +1,7 @@
 import type { DragEventHandler, RefObject } from 'react'
 import { Button } from '@/components/ui/button'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
-import type { Step } from '@/app/types'
+import type { Step } from '@/features/_shared/types'
 
 type UploadStepProps = {
   step: Step

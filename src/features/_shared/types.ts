@@ -15,3 +15,11 @@ export type ParsedData = {
 export type Step = 1 | 2 | 3
 
 export type RowOverrides = Record<string, { accountTitle?: string; taxCategory?: string }>
+
+export type ParsedUpload = {
+  name: string
+  rows: CsvRow[]
+  fields: string[]
+}
+
+export type SourceFilesParser = (files: FileList) => Promise<ParsedUpload[]>
